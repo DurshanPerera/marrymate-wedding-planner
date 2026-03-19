@@ -286,64 +286,6 @@ body {
 }
 
 
-
-.about {
-    margin: 20px;
-    padding: 50px;
-    color: white;
-}
-
-/* CONTAINER */
-.about-container {
-    display: flex;
-    gap: 40px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-/* LEFT TEXT */
-.about-text {
-    flex: 1;
-    min-width: 300px;
-}
-
-.about-text h2 {
-    font-size: 2rem;
-    margin-bottom: 20px;
-}
-
-.about-text p {
-    margin-bottom: 15px;
-    line-height: 1.7;
-    color: rgba(255,255,255,0.9);
-}
-
-/* RIGHT SIDE FEATURES */
-.about-features {
-    flex: 1;
-    min-width: 250px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* FEATURE ITEMS */
-.about-item {
-    background: rgba(255,255,255,0.1);
-    padding: 15px 20px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.2);
-    transition: 0.3s;
-}
-
-.about-item:hover {
-    transform: translateX(8px);
-    background: rgba(255,255,255,0.2);
-}
-
-
-
 .section-title {
     text-align: center;
     color: white;

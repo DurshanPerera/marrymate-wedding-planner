@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MarryMate</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="../assets/css/login.css">
+</head>
+
+<body>
+
+<div class="bg-bubbles">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+</div>
+
+<div class="login-container glass">
+
+    <div class="logo-wrapper">
+        <img src="../assets/images/marryMateLogo.png" class="logo">
+    </div>
+
+    <h2 class="welcome-text">Welcome!</h2>
+    <p class="sub-text">Please login to your account</p>
+
+    <form id="loginForm">
+
+        <div class="input-group">
+            <div class="input-icon">
+                <i class="far fa-envelope"></i>
+            </div>
+            <input type="email" id="email" placeholder="Enter your email" required>
+        </div>
+
+        <div class="input-group">
+            <div class="input-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <input type="password" id="password" placeholder="Enter your password" required>
+
+            <button type="button" class="password-toggle" id="togglePassword">
+                <i class="far fa-eye"></i>
+            </button>
+        </div>
+
+        <p class="error-message" id="errorMessage"></p>
+
+        <!-- forgot password -->
+        <div class="form-options">
+            <a href="#" class="forgot-link">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="login-btn" id="loginBtn">
+            <span>Login</span>
+            <i class="fas fa-arrow-right"></i>
+        </button>
+
+    </form>
+
+    <p class="register-text">
+        Don't have an account? 
+        <a href="register.html">Register</a>
+    </p>
+
+</div>
+
+<script src="../assets/js/login.js"></script>
+</body>
+</html>
