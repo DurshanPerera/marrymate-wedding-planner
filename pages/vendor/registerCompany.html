@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register as Company - MarryMate</title>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Sign-In Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../../assets/css/vendor/registerCompany.css">
+</head>
+<body>
+
+<!-- Bubble Background -->
+<div class="bg-bubbles">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+</div>
+
+<div class="register-container glass">
+    <!-- Logo -->
+    <div class="logo-wrapper">
+        <img src="../../assets/images/marryMateLogo.png" alt="MarryMate Logo" class="logo">
+    </div>
+
+    <h2>Register as Company</h2>
+    <p class="sub-text">Join MarryMate and grow your wedding business</p>
+
+    <!-- Registration Form -->
+    <form id="companyRegisterForm">
+        <!-- Company Name -->
+        <div class="input-group">
+            <i class="fas fa-building input-icon"></i>
+            <input type="text" id="companyName" placeholder="Company Name" required>
+        </div>
+
+        <!-- Contact Person Name -->
+        <div class="input-group">
+            <i class="fas fa-user input-icon"></i>
+            <input type="text" id="contactPerson" placeholder="Contact Person Name" required>
+        </div>
+
+        <!-- Email -->
+        <div class="input-group">
+            <i class="far fa-envelope input-icon"></i>
+            <input type="email" id="email" placeholder="Email Address" required>
+        </div>
+
+        <!-- Phone -->
+        <div class="input-group">
+            <i class="fas fa-phone-alt input-icon"></i>
+            <input type="tel" id="phone" placeholder="Phone Number" required>
+        </div>
+
+        <!-- Address -->
+        <div class="input-group">
+            <i class="fas fa-map-marker-alt input-icon"></i>
+            <input type="text" id="address" placeholder="Business Address" required>
+        </div>
+
+        <!-- Category -->
+        <div class="input-group">
+            <i class="fas fa-tag input-icon"></i>
+            <select id="category" required>
+                <option value="">Select Business Category</option>
+                <option value="venue">Wedding Venue / Hall</option>
+                <option value="photography">Photography & Videography</option>
+                <option value="catering">Catering Services</option>
+                <option value="bridal">Bridal Dressing & Salon</option>
+                <option value="entertainment">Entertainment</option>
+                <option value="cake">Wedding Cake Design</option>
+                <option value="invitations">Invitation Design / Printing</option>
+                <option value="honeymoon">Honeymoon Packages</option>
+                <option value="other">Other Wedding Service</option>
+            </select>
+        </div>
+
+        <!-- District -->
+        <div class="input-group">
+            <i class="fas fa-location-dot input-icon"></i>
+            <select id="district" required>
+                <option value="">Select District</option>
+                <option value="colombo">Colombo</option>
+                <option value="gampaha">Gampaha</option>
+                <option value="kalutara">Kalutara</option>
+                <option value="kandy">Kandy</option>
+                <option value="matale">Matale</option>
+                <option value="nuwaraeliya">Nuwara Eliya</option>
+                <option value="galle">Galle</option>
+                <option value="matara">Matara</option>
+                <option value="hambantota">Hambantota</option>
+                <option value="jaffna">Jaffna</option>
+                <option value="kilinochchi">Kilinochchi</option>
+                <option value="mullaitivu">Mullaitivu</option>
+                <option value="vavuniya">Vavuniya</option>
+                <option value="mannar">Mannar</option>
+                <option value="batticaloa">Batticaloa</option>
+                <option value="ampara">Ampara</option>
+                <option value="trincomalee">Trincomalee</option>
+                <option value="kurunegala">Kurunegala</option>
+                <option value="puttalam">Puttalam</option>
+                <option value="anuradhapura">Anuradhapura</option>
+                <option value="polonnaruwa">Polonnaruwa</option>
+                <option value="badulla">Badulla</option>
+                <option value="monaragala">Monaragala</option>
+                <option value="ratnapura">Ratnapura</option>
+                <option value="kegalle">Kegalle</option>
+            </select>
+        </div>
+
+        <!-- Password -->
+        <div class="input-group">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="button" class="password-toggle" id="togglePassword">
+                <i class="far fa-eye"></i>
+            </button>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="input-group">
+            <i class="fas fa-lock input-icon"></i>
+            <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+            <button type="button" class="password-toggle" id="toggleConfirmPassword">
+                <i class="far fa-eye"></i>
+            </button>
+        </div>
+
+        <!-- Optional: Website/Social Link -->
+        <div class="input-group">
+            <i class="fas fa-globe input-icon"></i>
+            <input type="url" id="website" placeholder="Website / Social Media Link (Optional)">
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div class="terms-group">
+            <label class="checkbox-container">
+                <input type="checkbox" id="terms" required>
+                <span class="checkmark"></span>
+                <span class="terms-text">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></span>
+            </label>
+        </div>
+
+        <!-- Error Message -->
+        <p class="error-message" id="errorMessage"></p>
+
+        <!-- Success Message -->
+        <p class="success-message" id="successMessage"></p>
+
+        <!-- Register Button -->
+        <button type="submit" class="register-btn" id="registerBtn">
+            <span>Register as Company</span>
+            <i class="fas fa-arrow-right"></i>
+        </button>
+    </form>
+
+    <!-- Divider -->
+    <div class="divider">
+        <span>or</span>
+    </div>
+
+    <!-- Google Sign-In Button -->
+    <div id="g_id_onload"
+         data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+         data-callback="handleGoogleSignIn"
+         data-auto_prompt="false">
+    </div>
+    
+    <div class="g_id_signin"
+         data-type="standard"
+         data-shape="rectangular"
+         data-theme="outline"
+         data-text="signin_with"
+         data-size="large"
+         data-logo_alignment="left">
+    </div>
+
+    <p class="login-text">
+        Already have an account?
+        <a href="../login.html">Sign In</a>
+    </p>
+</div>
+
+<script src="../../assets/js/vendor/register-company.js"></script>
+</body>
+</html>
