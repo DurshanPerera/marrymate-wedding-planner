@@ -41,15 +41,28 @@ body {
     align-items: center;
     padding: 12px 40px;
     margin: 20px;
-    position: sticky;
-    top: 20px;
-    z-index: 1000;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.18);
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* Desktop - Sticky navbar */
+@media (min-width: 769px) {
+    .navbar {
+        position: sticky;
+        top: 20px;
+        z-index: 1000;
+    }
+}
+
+/* Mobile - Normal/Static navbar */
+@media (max-width: 768px) {
+    .navbar {
+        position: relative;
+    }
 }
 
 .logoText {
@@ -634,6 +647,13 @@ body {
     
     .social-images {
         justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Override navbar sticky behavior on mobile */
+    .navbar {
+        position: relative;
     }
 }
 
