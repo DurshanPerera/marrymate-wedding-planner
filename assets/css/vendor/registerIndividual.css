@@ -269,6 +269,69 @@ input:focus, select:focus {
     color: #FFD700;
 }
 
+
+/* PASSWORD REQUIREMENTS */
+.password-requirements {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-top: -5px;
+    margin-bottom: 5px;
+    font-size: 12px;
+    text-align: left;
+    display: none;
+}
+
+.password-requirements.show {
+    display: block;
+}
+
+.requirements-title {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 8px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.password-requirements ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.requirement-item {
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 5px;
+    font-size: 11px;
+    transition: all 0.3s ease;
+}
+
+.requirement-item.valid {
+    color: #51cf66;
+}
+
+.requirement-item.invalid {
+    color: #ff6b6b;
+}
+
+.requirement-item::before {
+    content: "○";
+    margin-right: 5px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.requirement-item.valid::before {
+    content: "✓";
+    color: #51cf66;
+}
+
+.requirement-item.invalid::before {
+    content: "✗";
+    color: #ff6b6b;
+}
+
+
+
 /* TERMS GROUP */
 .terms-group {
     text-align: left;

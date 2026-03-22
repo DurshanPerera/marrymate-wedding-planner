@@ -134,6 +134,18 @@
             </button>
         </div>
 
+        <!-- PASSWORD REQUIREMENTS INDICATOR -->
+<div class="password-requirements" id="passwordRequirements">
+    <p class="requirements-title">Password must contain:</p>
+    <ul>
+        <li id="reqLength" class="requirement-item">✓ At least 8 characters</li>
+        <li id="reqUppercase" class="requirement-item">✓ At least one uppercase letter (A-Z)</li>
+        <li id="reqLowercase" class="requirement-item">✓ At least one lowercase letter (a-z)</li>
+        <li id="reqNumber" class="requirement-item">✓ At least one number (0-9)</li>
+        <li id="reqSpecial" class="requirement-item">✓ At least one special character (!@#$%^&*)</li>
+    </ul>
+</div>
+
         <!-- Confirm Password -->
         <div class="input-group">
             <i class="fas fa-lock input-icon"></i>
@@ -177,7 +189,7 @@
     </div>
 
     <!-- Google Sign-In Button -->
-    <div id="g_id_onload"
+    <!-- <div id="g_id_onload"
          data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
          data-callback="handleGoogleSignIn"
          data-auto_prompt="false">
@@ -190,7 +202,7 @@
          data-text="signin_with"
          data-size="large"
          data-logo_alignment="left">
-    </div>
+    </div> -->
 
     <p class="login-text">
         Already have an account?
@@ -198,6 +210,6 @@
     </p>
 </div>
 
-<script src="../../assets/js/vendor/register-individual.js"></script>
+<script type="module" src="../../assets/js/vendor/registerIndividual.js"></script>
 </body>
 </html>

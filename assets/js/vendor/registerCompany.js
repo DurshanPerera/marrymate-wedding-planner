@@ -1,3 +1,7 @@
+import { auth, db } from "../firebase/firebase-config.js";
+import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { setDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('companyRegisterForm');
     const registerBtn = document.getElementById('registerBtn');
@@ -9,6 +13,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmPasswordInput = document.getElementById('confirmPassword');
     const togglePassword = document.getElementById('togglePassword');
     const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+    
+    // Password requirements elements
+    const passwordRequirements = document.getElementById('passwordRequirements');
+    const reqLength = document.getElementById('reqLength');
+    const reqUppercase = document.getElementById('reqUppercase');
+    const reqLowercase = document.getElementById('reqLowercase');
+    const reqNumber = document.getElementById('reqNumber');
+    const reqSpecial = document.getElementById('reqSpecial');
+    
+    let isPasswordValid = false;
 
     // Password visibility toggle for Password field
     if (togglePassword) {
@@ -46,63 +60,99 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Real-time password match check
-    if (confirmPasswordInput) {
-        confirmPasswordInput.addEventListener('input', function() {
-            const password = passwordInput.value;
-            const confirmPassword = this.value;
-            
-            if (confirmPassword.length > 0) {
-                if (password === confirmPassword) {
-                    this.style.borderColor = '#51cf66';
-                    this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
-                } else {
-                    this.style.borderColor = '#ff6b6b';
-                    this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
-                }
-            } else {
-                this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                this.style.boxShadow = 'none';
-            }
-        });
+    // ==============================
+    // PASSWORD STRENGTH & VALIDATION
+    // ==============================
+    function checkPasswordRequirements(password) {
+        const hasLength = password.length >= 8;
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+        
+        updateRequirement(reqLength, hasLength);
+        updateRequirement(reqUppercase, hasUppercase);
+        updateRequirement(reqLowercase, hasLowercase);
+        updateRequirement(reqNumber, hasNumber);
+        updateRequirement(reqSpecial, hasSpecial);
+        
+        return hasLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
     }
 
-    // Real-time password strength indicator
-    if (passwordInput) {
-        passwordInput.addEventListener('input', function() {
-            const password = this.value;
-            const strength = checkPasswordStrength(password);
-            
-            if (password.length > 0) {
-                if (strength >= 4) {
-                    this.style.borderColor = '#51cf66';
-                    this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
-                } else if (strength >= 2) {
-                    this.style.borderColor = '#FFD700';
-                    this.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.3)';
-                } else {
-                    this.style.borderColor = '#ff6b6b';
-                    this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
-                }
-            } else {
-                this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                this.style.boxShadow = 'none';
-            }
-        });
+    function updateRequirement(element, isValid) {
+        if (isValid) {
+            element.classList.add('valid');
+            element.classList.remove('invalid');
+        } else {
+            element.classList.add('invalid');
+            element.classList.remove('valid');
+        }
     }
 
-    function checkPasswordStrength(password) {
-        let strength = 0;
-        if (password.length >= 8) strength++;
-        if (/[A-Z]/.test(password)) strength++;
-        if (/[a-z]/.test(password)) strength++;
-        if (/[0-9]/.test(password)) strength++;
-        if (/[^A-Za-z0-9]/.test(password)) strength++;
-        return strength;
-    }
+    // Show/hide password requirements when password field is focused
+    passwordInput.addEventListener('focus', function() {
+        if (passwordRequirements) {
+            passwordRequirements.classList.add('show');
+        }
+    });
+
+    passwordInput.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (document.activeElement !== passwordInput && passwordRequirements) {
+                passwordRequirements.classList.remove('show');
+            }
+        }, 200);
+    });
+
+    // Real-time password validation
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        const isValid = checkPasswordRequirements(password);
+        isPasswordValid = isValid;
+        
+        if (password.length > 0) {
+            if (isValid) {
+                this.style.borderColor = '#51cf66';
+                this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
+            } else {
+                this.style.borderColor = '#ff6b6b';
+                this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
+            }
+        } else {
+            this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            this.style.boxShadow = 'none';
+        }
+        
+        if (confirmPasswordInput.value.length > 0) {
+            if (password === confirmPasswordInput.value && isValid) {
+                confirmPasswordInput.style.borderColor = '#51cf66';
+            } else if (confirmPasswordInput.value.length > 0) {
+                confirmPasswordInput.style.borderColor = '#ff6b6b';
+            }
+        }
+    });
+
+    // Confirm password validation
+    confirmPasswordInput.addEventListener('input', function() {
+        const password = passwordInput.value;
+        const confirmPassword = this.value;
+        
+        if (confirmPassword.length > 0) {
+            if (password === confirmPassword && isPasswordValid) {
+                this.style.borderColor = '#51cf66';
+                this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
+            } else {
+                this.style.borderColor = '#ff6b6b';
+                this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
+            }
+        } else {
+            this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            this.style.boxShadow = 'none';
+        }
+    });
 
     // Form submission
-    registerForm.addEventListener('submit', function(e) {
+    registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // Get form values
@@ -128,42 +178,41 @@ document.addEventListener('DOMContentLoaded', function() {
         registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registering...';
         registerBtn.disabled = true;
 
-        // Simulate API call
-        setTimeout(() => {
-            // Check if email already exists (demo)
-            const vendors = JSON.parse(localStorage.getItem('vendors') || '[]');
-            if (vendors.some(v => v.email === email)) {
-                showError('Email already registered. Please use a different email.');
-                resetButton(registerBtn, originalBtnText);
-                return;
-            }
+        try {
+            // Create Firebase Auth account
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
 
-            // Save vendor data
-            const vendorData = {
-                id: Date.now(),
-                type: 'company',
-                companyName,
-                contactPerson,
-                email,
-                phone,
-                address,
-                category,
-                district,
-                website: website || '',
-                password: btoa(password),
-                registeredAt: new Date().toISOString(),
-                status: 'pending'
-            };
-            
-            vendors.push(vendorData);
-            localStorage.setItem('vendors', JSON.stringify(vendors));
+            // Save company vendor data in Firestore
+            await setDoc(doc(db, "company_vendors", user.uid), {
+                uid: user.uid,
+                companyName: companyName,
+                contactPerson: contactPerson,
+                email: email,
+                phone: phone,
+                address: address,
+                category: category,
+                district: district,
+                website: website || "",
+                role: "vendor",
+                vendorType: "company",
+                status: "pending",
+                authProvider: "password",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                isActive: true
+            });
 
             showSuccess('Registration successful! Please wait for admin approval.');
             
             setTimeout(() => {
-                window.location.href = '../../login.html';
+                window.location.href = '../login.html';
             }, 2000);
-        }, 1500);
+
+        } catch (error) {
+            showError(getFirebaseErrorMessage(error));
+            resetButton(registerBtn, originalBtnText);
+        }
     });
 
     function validateForm(companyName, contactPerson, email, phone, address, category, district, password, confirmPassword, terms) {
@@ -204,8 +253,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
         
-        if (password.length < 6) {
-            showError('Password must be at least 6 characters long');
+        if (!isPasswordValid) {
+            showError('Password does not meet requirements. Please check the password requirements above.');
             return false;
         }
         
@@ -220,6 +269,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         return true;
+    }
+
+    function getFirebaseErrorMessage(error) {
+        switch (error.code) {
+            case 'auth/email-already-in-use':
+                return 'Email already registered. Please use a different email.';
+            case 'auth/invalid-email':
+                return 'Please enter a valid email address.';
+            case 'auth/weak-password':
+                return 'Password is too weak.';
+            case 'auth/network-request-failed':
+                return 'Network error. Please check your internet connection.';
+            default:
+                return error.message || 'Registration failed. Please try again.';
+        }
     }
 
     function showError(message) {
@@ -265,6 +329,8 @@ function handleGoogleSignIn(response) {
         }
     }
 }
+
+window.handleGoogleSignIn = handleGoogleSignIn;
 
 function parseJwt(token) {
     const base64Url = token.split('.')[1];

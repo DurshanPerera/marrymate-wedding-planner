@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase/firebase-config.js";
+import { auth, db } from "../firebase/firebase-config.js";
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { setDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
@@ -243,7 +243,7 @@ form.addEventListener("submit", async function (e) {
         showSuccess("Account created successfully!");
 
         setTimeout(() => {
-            window.location.href = "login.html";
+            window.location.href = "../login.html";
         }, 1500);
 
     } catch (error) {
