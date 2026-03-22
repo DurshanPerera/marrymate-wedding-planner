@@ -27,6 +27,16 @@ const successMessage = document.getElementById("successMessage");
 const registerBtn = document.getElementById("registerBtn");
 const googleBtn = document.getElementById("googleBtn");
 
+// Password requirements elements
+const passwordRequirements = document.getElementById("passwordRequirements");
+const reqLength = document.getElementById("reqLength");
+const reqUppercase = document.getElementById("reqUppercase");
+const reqLowercase = document.getElementById("reqLowercase");
+const reqNumber = document.getElementById("reqNumber");
+const reqSpecial = document.getElementById("reqSpecial");
+
+let isPasswordValid = false;
+
 // ==============================
 // PASSWORD TOGGLE
 // ==============================
@@ -52,32 +62,93 @@ function toggleInput(input, button) {
 }
 
 // ==============================
-// PASSWORD STRENGTH
+// PASSWORD STRENGTH & VALIDATION
 // ==============================
-passwordInput.addEventListener("input", function () {
-    const password = this.value;
-    const strength = checkPasswordStrength(password);
+function checkPasswordRequirements(password) {
+    const hasLength = password.length >= 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    updateRequirement(reqLength, hasLength);
+    updateRequirement(reqUppercase, hasUppercase);
+    updateRequirement(reqLowercase, hasLowercase);
+    updateRequirement(reqNumber, hasNumber);
+    updateRequirement(reqSpecial, hasSpecial);
+    
+    return hasLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+}
 
+function updateRequirement(element, isValid) {
+    if (isValid) {
+        element.classList.add("valid");
+        element.classList.remove("invalid");
+    } else {
+        element.classList.add("invalid");
+        element.classList.remove("valid");
+    }
+}
+
+// Show/hide password requirements when password field is focused
+passwordInput.addEventListener("focus", function() {
+    if (passwordRequirements) {
+        passwordRequirements.classList.add("show");
+    }
+});
+
+passwordInput.addEventListener("blur", function() {
+    setTimeout(() => {
+        if (document.activeElement !== passwordInput && passwordRequirements) {
+            passwordRequirements.classList.remove("show");
+        }
+    }, 200);
+});
+
+// Real-time password validation
+passwordInput.addEventListener("input", function() {
+    const password = this.value;
+    const isValid = checkPasswordRequirements(password);
+    isPasswordValid = isValid;
+    
     if (password.length > 0) {
-        if (strength >= 4) {
+        if (isValid) {
             this.style.borderColor = '#51cf66';
-        } else if (strength >= 2) {
-            this.style.borderColor = '#FFD700';
+            this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
         } else {
             this.style.borderColor = '#ff6b6b';
+            this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
+        }
+    } else {
+        this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        this.style.boxShadow = 'none';
+    }
+    
+    if (confirmPasswordInput.value.length > 0) {
+        if (password === confirmPasswordInput.value && isValid) {
+            confirmPasswordInput.style.borderColor = '#51cf66';
+        } else if (confirmPasswordInput.value.length > 0) {
+            confirmPasswordInput.style.borderColor = '#ff6b6b';
         }
     }
 });
 
-confirmPasswordInput.addEventListener("input", function () {
+// Confirm password validation
+confirmPasswordInput.addEventListener("input", function() {
     const password = passwordInput.value;
-
-    if (this.value.length > 0) {
-        if (password === this.value) {
+    const confirmPassword = this.value;
+    
+    if (confirmPassword.length > 0) {
+        if (password === confirmPassword && isPasswordValid) {
             this.style.borderColor = '#51cf66';
+            this.style.boxShadow = '0 0 10px rgba(81, 207, 102, 0.3)';
         } else {
             this.style.borderColor = '#ff6b6b';
+            this.style.boxShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
         }
+    } else {
+        this.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        this.style.boxShadow = 'none';
     }
 });
 
@@ -100,16 +171,6 @@ birthdayInput.addEventListener("change", function () {
         this.value = "";
     }
 });
-
-function checkPasswordStrength(password) {
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-    return strength;
-}
 
 // ==============================
 // FORM SUBMIT (FIREBASE)
@@ -143,8 +204,8 @@ form.addEventListener("submit", async function (e) {
         return showError("Enter valid Sri Lankan phone number");
     }
 
-    if (password.length < 6) {
-        return showError("Password must be at least 6 characters");
+    if (!isPasswordValid) {
+        return showError("Password does not meet requirements. Please check the password requirements above.");
     }
 
     if (password !== confirmPassword) {
@@ -160,20 +221,23 @@ form.addEventListener("submit", async function (e) {
     // ==============================
     try {
         registerBtn.disabled = true;
-        registerBtn.innerHTML = "Creating...";
+        registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
 
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
         await setDoc(doc(db, "users", user.uid), {
             uid: user.uid,
-            name,
-            email,
-            phone,
-            address,
-            birthday,
+            fullName: name,
+            email: email,
+            phone: phone,
+            address: address,
+            birthday: birthday,
             role: "customer",
-            createdAt: new Date().toISOString()
+            authProvider: "password",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            isActive: true
         });
 
         showSuccess("Account created successfully!");
@@ -185,9 +249,18 @@ form.addEventListener("submit", async function (e) {
     } catch (error) {
         showError(getFirebaseError(error));
         registerBtn.disabled = false;
-        registerBtn.innerHTML = "Register";
+        registerBtn.innerHTML = '<span>Create Account</span><i class="fas fa-arrow-right"></i>';
     }
 });
+
+// ==============================
+// GOOGLE BUTTON (PLACEHOLDER)
+// ==============================
+if (googleBtn) {
+    googleBtn.addEventListener("click", () => {
+        showSuccess("Google login will be added soon (Firebase)");
+    });
+}
 
 // ==============================
 // VALIDATION HELPERS
@@ -214,19 +287,27 @@ function getFirebaseError(error) {
 }
 
 // ==============================
-// UI
+// UI FUNCTIONS
 // ==============================
 function showError(message) {
     errorMessage.style.display = "block";
     errorMessage.textContent = message;
+    successMessage.style.display = "none";
+    
+    setTimeout(() => {
+        errorMessage.style.display = "none";
+    }, 5000);
 }
 
 function showSuccess(message) {
     successMessage.style.display = "block";
     successMessage.textContent = message;
+    errorMessage.style.display = "none";
 }
 
 function clearMessages() {
     errorMessage.style.display = "none";
     successMessage.style.display = "none";
+    errorMessage.textContent = "";
+    successMessage.textContent = "";
 }
