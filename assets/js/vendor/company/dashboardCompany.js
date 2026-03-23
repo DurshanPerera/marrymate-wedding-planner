@@ -139,12 +139,8 @@ async function loadVendorData() {
         
         if (vendorSnap.exists()) {
             currentVendorData = vendorSnap.data();
-            console.log("Vendor data loaded:", currentVendorData);
-            console.log("District value from DB:", currentVendorData.district);
-            console.log("Category value from DB:", currentVendorData.category);
             updateUIWithVendorData();
         } else {
-            console.log("No vendor data found");
             showToast("Please complete your profile setup", false);
         }
     } catch (error) {
@@ -176,6 +172,28 @@ function updateUIWithVendorData() {
         statusBadge.className = "status-badge rejected";
         statusText.textContent = "Business Disabled";
         if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-toggle-off"></i><span>Disabled</span>';
+    }
+    
+    // Update approval badge
+    const approvalBadge = document.getElementById("approvalBadge");
+    const approvalDetails = document.getElementById("approvalDetails");
+    const approvalStatus = (currentVendorData.status || "pending").toLowerCase();
+
+    if (approvalBadge) {
+        approvalBadge.textContent = approvalStatus.charAt(0).toUpperCase() + approvalStatus.slice(1);
+        approvalBadge.className = `approval-badge ${approvalStatus}`;
+    }
+
+    if (approvalDetails) {
+        if (approvalStatus === "pending") {
+            approvalDetails.textContent = "Pending: Your profile is under review by MarryMate admin (typically up to 24 hours).";
+        } else if (approvalStatus === "approved") {
+            approvalDetails.textContent = "Approved: Your company is live and visible to customers.";
+        } else if (approvalStatus === "rejected") {
+            approvalDetails.textContent = "Rejected: Please review your profile info and contact support for next steps.";
+        } else {
+            approvalDetails.textContent = "Status notification is unavailable. Contact support for details.";
+        }
     }
     
     // Fill profile form
@@ -231,6 +249,26 @@ function updateUIWithVendorData() {
         profilePreview.style.display = "none";
         profilePlaceholder.style.display = "flex";
         removeBtn.style.display = "none";
+    }
+    
+    // Update integration status fields
+    const connectionStatus = document.getElementById("connectionStatus");
+    const lastChecked = document.getElementById("lastChecked");
+    const sourceType = document.getElementById("sourceType");
+    
+    if (connectionStatus) {
+        const status = currentVendorData.integrationStatus || "Not Connected";
+        connectionStatus.textContent = status;
+        connectionStatus.className = status === "Connected" ? "status-connected" : "status-disconnected";
+    }
+    
+    if (lastChecked) {
+        const lastCheck = currentVendorData.lastChecked ? new Date(currentVendorData.lastChecked).toLocaleString() : "Never";
+        lastChecked.textContent = lastCheck;
+    }
+    
+    if (sourceType) {
+        sourceType.textContent = currentVendorData.sourceType || "Not Set";
     }
     
     // Update profile completion
@@ -338,7 +376,7 @@ function renderBookings() {
     document.getElementById("bookingBadge").textContent = pendingBookings.length;
     
     if (pendingBookings.length === 0) {
-        requestsBody.innerHTML = '发展<td colspan="6" class="empty-state">No booking requests yet.</td></tr>';
+        requestsBody.innerHTML = '<tr><td colspan="6" class="empty-state">No booking requests yet.</td></tr>';
     } else {
         requestsBody.innerHTML = pendingBookings.map(booking => `
             <tr>
@@ -618,6 +656,54 @@ function renderBookingChart() {
 /* =========================================================
    FORM HANDLERS
 ========================================================= */
+async function saveWebsiteUrl() {
+    const websiteUrl = document.getElementById("websiteUrl").value.trim();
+    
+    if (!websiteUrl) {
+        showToast("Please enter a website URL", true);
+        return;
+    }
+    
+    try {
+        const updatedData = {
+            website: websiteUrl,
+            integrationStatus: "Connected",
+            lastChecked: new Date().toISOString(),
+            sourceType: "Manual",
+            updatedAt: new Date().toISOString()
+        };
+        
+        await setDoc(doc(db, "company_vendors", currentUser.uid), updatedData, { merge: true });
+        currentVendorData = { ...currentVendorData, ...updatedData };
+        updateUIWithVendorData();
+        showToast("Website URL saved and connection tested!");
+    } catch (error) {
+        console.error("Error saving website URL:", error);
+        showToast("Error saving website URL", true);
+    }
+}
+
+async function removeWebsiteUrl() {
+    try {
+        const updatedData = {
+            website: "",
+            integrationStatus: "Not Connected",
+            lastChecked: null,
+            sourceType: "Manual",
+            updatedAt: new Date().toISOString()
+        };
+        
+        await setDoc(doc(db, "company_vendors", currentUser.uid), updatedData, { merge: true });
+        currentVendorData = { ...currentVendorData, ...updatedData };
+        document.getElementById("websiteUrl").value = "";
+        updateUIWithVendorData();
+        showToast("Website URL removed successfully!");
+    } catch (error) {
+        console.error("Error removing website URL:", error);
+        showToast("Error removing website URL", true);
+    }
+}
+
 async function saveProfile(e) {
     e.preventDefault();
     
@@ -955,7 +1041,8 @@ function setupEventListeners() {
     });
     document.getElementById("addServiceBtn")?.addEventListener("click", () => clearServiceForm());
     document.getElementById("addImageBtn")?.addEventListener("click", () => showToast("Image upload coming soon!"));
-    document.getElementById("testConnectionBtn")?.addEventListener("click", () => showToast("Website integration coming soon!"));
+    document.getElementById("testConnectionBtn")?.addEventListener("click", saveWebsiteUrl);
+    document.getElementById("clearWebsiteBtn")?.addEventListener("click", removeWebsiteUrl);
     
     // Profile picture
     document.querySelector(".profile-picture-container")?.addEventListener("click", () => {
@@ -975,3 +1062,4 @@ function setupEventListeners() {
 window.editService = editService;
 window.deleteService = deleteService;
 window.updateBookingStatus = updateBookingStatus;
+window.switchSection = switchSection;

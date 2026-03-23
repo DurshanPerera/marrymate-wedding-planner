@@ -93,7 +93,7 @@
         <header class="top-header glass">
             <div class="header-left">
                 <h1 id="pageTitle">Dashboard</h1>
-                <p id="pageSubtitle">Welcome back. Here is your business overview.</p>
+                <p id="pageSubtitle">Welcome! Here is your business overview.</p>
             </div>
 
             <div class="header-right">
@@ -102,6 +102,9 @@
                         <span class="status-dot"></span>
                         <span id="statusText">Loading...</span>
                     </div>
+
+                    <div class="approval-badge" id="approvalBadge">Pending</div>
+                    <div class="approval-details" id="approvalDetails">Approval is pending review by MarryMate admin. It may take up to 24 hours.</div>
 
                     <div class="vendor-name" id="vendorName">
                         <i class="fas fa-building"></i>
@@ -612,6 +615,11 @@
                     <small>This is a future-ready section for website scraping/integration.</small>
                 </div>
 
+                <div class="form-actions">
+                    <button class="btn-secondary" id="testConnectionBtn" type="button">Test Connection</button>
+                    <button class="btn-secondary" id="clearWebsiteBtn" type="button">Remove Website URL</button>
+                </div>
+
                 <div class="integration-status">
                     <div class="status-info">
                         <i class="fas fa-info-circle"></i>
@@ -619,7 +627,11 @@
                     </div>
                 </div>
 
-                <button class="btn-primary" id="testConnectionBtn" type="button">Test Connection</button>
+                <div class="integration-details">
+                    <p><strong>Connection Status:</strong> <span id="connectionStatus">Not Connected</span></p>
+                    <p><strong>Last Checked:</strong> <span id="lastChecked">Never</span></p>
+                    <p><strong>Source Type:</strong> <span id="sourceType">Manual</span></p>
+                </div>
             </div>
         </section>
 
