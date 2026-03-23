@@ -103,7 +103,7 @@ if (loginForm) {
 
         try {
             // ==============================
-            // ADMIN LOGIN (HARDCODED)
+            // ADMIN LOGIN
             // ==============================
             if (email === ADMIN_EMAIL) {
                 if (password !== ADMIN_PASSWORD) {
@@ -136,17 +136,13 @@ if (loginForm) {
             }
 
             // ==============================
-            // STEP 2: TRY FIREBASE AUTH LOGIN
+            // STEP 2: LOGIN WITH FIREBASE AUTH
             // ==============================
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
             // ==============================
             // FIND USER ROLE FROM FIRESTORE
-            // order:
-            // 1. users
-            // 2. company_vendors
-            // 3. individual_vendors
             // ==============================
             let userRole = null;
             let userData = null;
@@ -290,15 +286,23 @@ function redirectBasedOnRole(role) {
     if (role === "customer") {
         showSuccessMessage("Welcome! Redirecting to customer dashboard...");
         setTimeout(() => {
-            window.location.href = "../customer/dashboard.html";
+            window.location.href = "customer/dashboard.html";
         }, 1500);
         return;
     }
 
-    if (role === "vendor_company" || role === "vendor_individual") {
-        showSuccessMessage("Welcome! Redirecting to vendor dashboard...");
+    if (role === "vendor_company") {
+        showSuccessMessage("Welcome! Redirecting to company vendor dashboard...");
         setTimeout(() => {
-            window.location.href = "../vendor/dashboard.html";
+            window.location.href = "vendor/company/dashboardCompany.html";
+        }, 1500);
+        return;
+    }
+
+    if (role === "vendor_individual") {
+        showSuccessMessage("Welcome! Redirecting to individual vendor dashboard...");
+        setTimeout(() => {
+            window.location.href = "vendor/individual/dashboardIndividual.html";
         }, 1500);
         return;
     }
