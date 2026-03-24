@@ -24,7 +24,7 @@ const loginBtn = document.getElementById("loginBtn");
 // HARDCODED ADMIN
 // ==============================
 const ADMIN_EMAIL = "admin@gmail.com";
-const ADMIN_PASSWORD = "admin123";
+const ADMIN_PASSWORD = "Admin@1234";
 
 // ==============================
 // PASSWORD TOGGLE
@@ -115,8 +115,12 @@ if (loginForm) {
                 }
 
                 showSuccessMessage("Welcome Admin! Redirecting to dashboard...");
+                localStorage.setItem("adminSession", JSON.stringify({
+                    email: ADMIN_EMAIL,
+                    timestamp: Date.now()
+                }));
                 setTimeout(() => {
-                    window.location.href = "../admin/dashboard.html";
+                    window.location.href = "admin/dashboard.html";
                 }, 1500);
                 return;
             }
@@ -302,7 +306,7 @@ function redirectBasedOnRole(role) {
     if (role === "vendor_individual") {
         showSuccessMessage("Welcome! Redirecting to individual vendor dashboard...");
         setTimeout(() => {
-            window.location.href = "vendor/individual/dashboardIndividual.html";
+            window.location.href = "vendor/Individual/dashboardIndividual.html";
         }, 1500);
         return;
     }

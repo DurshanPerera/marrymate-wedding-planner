@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Individual Vendor Dashboard - MarryMate</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="../../../assets/css/vendor/individual/dashboardIndividual.css">
+</head>
+<body>
+
+<div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar glass">
+        <div class="sidebar-header">
+            <div class="logo-area">
+                <img src="../../../assets/images/marryMateLogo.png" alt="MarryMate" class="sidebar-logo">
+                <h3>MarryMate</h3>
+            </div>
+            <p class="sidebar-role">Individual Vendor Panel</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-section="dashboard"><i class="fas fa-chart-line"></i><span>Dashboard</span></a>
+            <a href="#" class="nav-item" data-section="profile"><i class="fas fa-user-circle"></i><span>My Profile</span></a>
+            <a href="#" class="nav-item" data-section="services"><i class="fas fa-concierge-bell"></i><span>Services</span></a>
+            <a href="#" class="nav-item" data-section="portfolio"><i class="fas fa-images"></i><span>Portfolio</span></a>
+            <a href="#" class="nav-item" data-section="availability"><i class="fas fa-calendar-alt"></i><span>Availability</span><span class="badge" id="availabilityBadge">0</span></a>
+            <a href="#" class="nav-item" data-section="bookings"><i class="fas fa-calendar-check"></i><span>Bookings</span><span class="badge" id="bookingBadge">0</span></a>
+            <a href="#" class="nav-item" data-section="reviews"><i class="fas fa-star"></i><span>Reviews & Ratings</span></a>
+            <a href="#" class="nav-item" data-section="payments"><i class="fas fa-wallet"></i><span>Payments</span></a>
+            <a href="#" class="nav-item" data-section="messages"><i class="fas fa-envelope"></i><span>Messages</span><span class="badge" id="messageBadge">0</span></a>
+            <a href="#" class="nav-item" data-section="social"><i class="fas fa-share-alt"></i><span>Social / Website</span></a>
+            <a href="#" class="nav-item" data-section="settings"><i class="fas fa-cog"></i><span>Settings</span></a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Logout</span></a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header glass">
+            <div class="header-left">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p id="pageSubtitle">Welcome! Here's your personal business overview.</p>
+            </div>
+            <div class="header-right">
+                <div class="vendor-info">
+                    <div class="status-badge" id="statusBadge"><span class="status-dot"></span><span id="statusText">Loading...</span></div>
+                    <div class="approval-badge" id="approvalBadge">Pending</div>
+                    <div class="approval-details" id="approvalDetails">Approval is pending review by MarryMate admin. It may take up to 24 hours.</div>
+                    <div class="vendor-name" id="vendorName"><i class="fas fa-user-circle"></i><span>Individual Vendor</span></div>
+                    <button type="button" class="availability-toggle" id="availabilityToggle"><i class="fas fa-toggle-on"></i><span>Available</span></button>
+                    <div class="profile-icon"><i class="fas fa-user-circle"></i></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Section -->
+        <section id="dashboardSection" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-percent"></i></div><div class="stat-info"><h3>Profile Completion</h3><div class="progress-bar"><div class="progress-fill" id="profileCompletionBar" style="width: 0%;"></div></div><p class="stat-value" id="profileCompletion">0%</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-concierge-bell"></i></div><div class="stat-info"><h3>Services Added</h3><p class="stat-value" id="servicesCount">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-calendar-alt"></i></div><div class="stat-info"><h3>Booking Requests</h3><p class="stat-value" id="bookingsCount">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-info"><h3>Average Rating</h3><p class="stat-value" id="averageRating">0.0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-wallet"></i></div><div class="stat-info"><h3>Pending Payments</h3><p class="stat-value" id="pendingPaymentsCount">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-envelope"></i></div><div class="stat-info"><h3>Unread Messages</h3><p class="stat-value" id="messagesCount">0</p></div></div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Recent Booking Requests</h3><span class="mini-chip">Live Overview</span></div><div class="recent-list" id="recentBookings"><p class="empty-state">No recent booking requests yet.</p></div><a href="#" class="view-all" data-section="bookings">View All →</a></div>
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Booking Analytics</h3><span class="mini-chip">Monthly</span></div><canvas id="bookingChart"></canvas></div>
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Recent Reviews</h3><span class="mini-chip">Customer Feedback</span></div><div class="recent-list" id="recentReviews"><p class="empty-state">No reviews available yet.</p></div><a href="#" class="view-all" data-section="reviews">View All →</a></div>
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Quick Actions</h3><span class="mini-chip">Shortcuts</span></div><div class="quick-actions"><button class="action-btn" data-section="services"><i class="fas fa-plus"></i><span>Add Service</span></button><button class="action-btn" data-section="portfolio"><i class="fas fa-image"></i><span>Add Portfolio</span></button><button class="action-btn" data-section="availability"><i class="fas fa-calendar-plus"></i><span>Set Availability</span></button><button class="action-btn" data-section="profile"><i class="fas fa-edit"></i><span>Update Profile</span></button></div></div>
+            </div>
+        </section>
+
+        <!-- My Profile Section -->
+        <section id="profileSection" class="content-section">
+            <h2>My Profile</h2>
+            <p class="section-desc">Manage your personal information, skills, and business details.</p>
+
+            <div class="glass form-container">
+                <form id="profileForm">
+                    <!-- Profile Picture -->
+                    <div class="profile-picture-section">
+                        <div class="profile-picture-container">
+                            <img id="profilePreview" src="" alt="Profile Picture" class="profile-preview" style="display: none;">
+                            <div id="profilePlaceholder" class="profile-placeholder"><i class="fas fa-user"></i><span>No Profile Photo</span></div>
+                            <div class="profile-picture-overlay"><i class="fas fa-camera"></i><span>Change Photo</span></div>
+                            <button type="button" id="removeProfilePicture" class="remove-btn" style="display: none;"><i class="fas fa-times"></i></button>
+                        </div>
+                        <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                        <p class="profile-picture-hint">Click to upload profile photo (JPG, PNG, max 2MB)</p>
+                    </div>
+
+                    <div class="section-subtitle-row">
+                        <h3>Basic Information</h3>
+                        <div class="inline-status">
+                            <label class="toggle-row"><span>Account Active</span><input type="checkbox" id="businessActive" checked></label>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="fullName">Full Name *</label><input type="text" id="fullName" placeholder="Enter your full name" required></div>
+                        <div class="form-group"><label for="serviceName">Service / Brand Name *</label><input type="text" id="serviceName" placeholder="e.g., Sarah's Bridal Makeup" required></div>
+                        <div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" placeholder="Enter email address" required></div>
+                        <div class="form-group"><label for="phone">Phone Number *</label><input type="tel" id="phone" placeholder="Enter phone number" required></div>
+                        <div class="form-group"><label for="address">Address *</label><textarea id="address" rows="2" placeholder="Enter your address" required></textarea></div>
+                        <div class="form-group"><label for="district">District *</label><select id="district" required><option value="">Select District</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Matale">Matale</option><option value="Nuwara Eliya">Nuwara Eliya</option><option value="Galle">Galle</option><option value="Matara">Matara</option><option value="Hambantota">Hambantota</option><option value="Jaffna">Jaffna</option><option value="Kilinochchi">Kilinochchi</option><option value="Mullaitivu">Mullaitivu</option><option value="Vavuniya">Vavuniya</option><option value="Mannar">Mannar</option><option value="Batticaloa">Batticaloa</option><option value="Ampara">Ampara</option><option value="Trincomalee">Trincomalee</option><option value="Kurunegala">Kurunegala</option><option value="Puttalam">Puttalam</option><option value="Anuradhapura">Anuradhapura</option><option value="Polonnaruwa">Polonnaruwa</option><option value="Badulla">Badulla</option><option value="Monaragala">Monaragala</option><option value="Ratnapura">Ratnapura</option><option value="Kegalle">Kegalle</option></select></div>
+                        <div class="form-group"><label for="category">Service Category *</label><select id="category" required><option value="">Select Category</option><option value="photography">Photography & Videography</option><option value="bridal">Bridal Dressing & Makeup</option><option value="entertainment">Entertainment (DJ, Music)</option><option value="cake">Wedding Cake Design</option><option value="invitations">Invitation Design</option><option value="planning">Wedding Planning</option><option value="decor">Wedding Decor</option><option value="hair">Hair Styling</option><option value="other">Other Service</option></select></div>
+                        <div class="form-group"><label for="experience">Years of Experience</label><input type="number" id="experience" placeholder="e.g., 5" min="0"></div>
+                        <div class="form-group"><label for="serviceArea">Service Area</label><input type="text" id="serviceArea" placeholder="e.g., Colombo & Suburbs"></div>
+                        <div class="form-group full-width"><label for="description">Bio / Description</label><textarea id="description" rows="4" placeholder="Tell customers about yourself, your experience, your style, and what makes you special..."></textarea></div>
+                    </div>
+
+                    <div class="section-subtitle-row"><h3>Social & Online Presence</h3></div>
+                    <div class="form-grid">
+                        <div class="form-group"><label for="website">Website</label><input type="url" id="website" placeholder="https://yourwebsite.com"></div>
+                        <div class="form-group"><label for="facebook">Facebook</label><input type="url" id="facebook" placeholder="https://facebook.com/yourpage"></div>
+                        <div class="form-group"><label for="instagram">Instagram</label><input type="url" id="instagram" placeholder="https://instagram.com/yourhandle"></div>
+                        <div class="form-group"><label for="whatsapp">WhatsApp</label><input type="tel" id="whatsapp" placeholder="+94 XX XXX XXXX"></div>
+                    </div>
+
+                    <div class="form-actions"><button type="submit" class="btn-primary">Save Changes</button><button type="button" class="btn-secondary" id="resetProfileBtn">Reset</button></div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="servicesSection" class="content-section">
+            <div class="section-header"><div><h2>My Services</h2><p class="section-desc">Add and manage the services you offer to wedding couples.</p></div><button class="btn-primary" id="addServiceBtn"><i class="fas fa-plus"></i> Add New Service</button></div>
+
+            <div class="glass form-container compact-form">
+                <div class="section-subtitle-row"><h3>Add / Edit Service</h3></div>
+                <form id="serviceForm"><input type="hidden" id="serviceId"><div class="form-grid"><div class="form-group"><label for="serviceTitle">Service Title *</label><input type="text" id="serviceTitle" placeholder="e.g., Bridal Makeup Package" required></div><div class="form-group"><label for="serviceCategory">Category *</label><select id="serviceCategory" required><option value="">Select category</option><option value="photography">Photography</option><option value="bridal">Bridal Makeup</option><option value="entertainment">Entertainment</option><option value="cake">Cake Design</option><option value="invitations">Invitation Design</option><option value="planning">Wedding Planning</option><option value="decor">Wedding Decor</option><option value="hair">Hair Styling</option><option value="other">Other</option></select></div><div class="form-group"><label for="servicePrice">Price (LKR) *</label><input type="number" id="servicePrice" placeholder="Enter price" min="0" required></div><div class="form-group"><label for="serviceStatus">Service Status *</label><select id="serviceStatus" required><option value="active">Active</option><option value="inactive">Inactive</option></select></div><div class="form-group full-width"><label for="serviceDescription">Description *</label><textarea id="serviceDescription" rows="4" placeholder="Describe your service, what's included, duration, and special details." required></textarea></div></div><div class="form-actions"><button type="submit" class="btn-primary">Save Service</button><button type="button" class="btn-secondary" id="clearServiceBtn">Clear</button></div></form>
+            </div>
+
+            <div class="services-grid" id="servicesGrid"><p class="empty-state">No services added yet. Use the form above to create your first service.</p></div>
+        </section>
+
+        <!-- Portfolio Section -->
+        <section id="portfolioSection" class="content-section">
+            <div class="section-header"><div><h2>Portfolio</h2><p class="section-desc">Showcase your best work to attract more customers.</p></div><button class="btn-primary" id="addPortfolioBtn"><i class="fas fa-plus"></i> Add Portfolio Item</button></div>
+            <div class="portfolio-grid" id="portfolioGrid"><div class="portfolio-placeholder glass"><i class="fas fa-cloud-upload-alt"></i><p>No portfolio items yet. Showcase your best work here.</p></div></div>
+        </section>
+
+        <!-- Availability Section -->
+        <section id="availabilitySection" class="content-section">
+            <div class="section-header"><div><h2>Availability</h2><p class="section-desc">Manage your available dates for bookings.</p></div><button class="btn-primary" id="addAvailabilityBtn"><i class="fas fa-plus"></i> Add Available Date</button></div>
+            
+            <div class="glass form-container availability-form">
+                <div class="form-grid">
+                    <div class="form-group"><label for="availabilityDate">Select Date</label><input type="date" id="availabilityDate"></div>
+                    <div class="form-group"><label for="availabilityNote">Note (Optional)</label><input type="text" id="availabilityNote" placeholder="e.g., Only morning sessions available"></div>
+                </div>
+                <div class="form-actions"><button class="btn-primary" id="saveAvailabilityBtn">Add Available Date</button></div>
+            </div>
+
+            <div class="availability-grid" id="availabilityGrid">
+                <p class="empty-state">No availability dates added. Click "Add Available Date" to let customers know when you're free.</p>
+            </div>
+        </section>
+
+        <!-- Bookings Section -->
+        <section id="bookingsSection" class="content-section">
+            <h2>Bookings</h2><p class="section-desc">View booking requests, approve or reject them, and check booking history.</p>
+            <div class="tabs-row"><button class="tab-btn active" data-tab="bookingRequestsTab">Booking Requests</button><button class="tab-btn" data-tab="bookingHistoryTab">Booking History</button></div>
+            <div id="bookingRequestsTab" class="tab-panel active"><div class="table-container glass"><table class="data-table"><thead><tr><th>Customer</th><th>Service</th><th>Event Date</th><th>Budget</th><th>Status</th><th>Action</th></tr></thead><tbody id="bookingsRequestsTableBody"><tr><td colspan="6" class="empty-state">No booking requests yet.</td></tr></tbody></table></div></div>
+            <div id="bookingHistoryTab" class="tab-panel"><div class="table-container glass"><table class="data-table"><thead><tr><th>Customer</th><th>Service</th><th>Event Date</th><th>Final Status</th><th>Amount</th></tr></thead><tbody id="bookingsHistoryTableBody"><tr><td colspan="5" class="empty-state">No booking history yet.</td></tr></tbody></table></div></div>
+        </section>
+
+        <!-- Reviews Section -->
+        <section id="reviewsSection" class="content-section">
+            <h2>Reviews & Ratings</h2><p class="section-desc">See what customers say about your services.</p>
+            <div class="reviews-summary-grid"><div class="glass summary-card"><h3>Average Rating</h3><p class="summary-value" id="reviewAverage">0.0</p></div><div class="glass summary-card"><h3>Total Reviews</h3><p class="summary-value" id="reviewCount">0</p></div><div class="glass summary-card"><h3>5 Star Reviews</h3><p class="summary-value" id="fiveStarCount">0</p></div></div>
+            <div class="messages-list glass" id="reviewsList"><p class="empty-state">No reviews yet.</p></div>
+        </section>
+
+        <!-- Payments Section -->
+        <section id="paymentsSection" class="content-section">
+            <h2>Payment Management</h2><p class="section-desc">View payment status and transaction history.</p>
+            <div class="tabs-row"><button class="tab-btn active" data-tab="paymentStatusTab">Payment Status</button><button class="tab-btn" data-tab="paymentHistoryTab">Transaction History</button></div>
+            <div id="paymentStatusTab" class="tab-panel active"><div class="table-container glass"><table class="data-table"><thead><tr><th>Booking ID</th><th>Customer</th><th>Amount</th><th>Status</th><th>Method</th></tr></thead><tbody id="paymentStatusTableBody"><tr><td colspan="5" class="empty-state">No payment records yet.</td></tr></tbody></table></div></div>
+            <div id="paymentHistoryTab" class="tab-panel"><div class="table-container glass"><table class="data-table"><thead><tr><th>Date</th><th>Transaction ID</th><th>Customer</th><th>Amount</th><th>Status</th></tr></thead><tbody id="paymentHistoryTableBody"><tr><td colspan="5" class="empty-state">No transaction history yet.</td></tr></tbody></table></div></div>
+        </section>
+
+        <!-- Messages Section -->
+        <section id="messagesSection" class="content-section">
+            <h2>Messages & Inquiries</h2><p class="section-desc">Read messages from potential customers.</p>
+            <div class="messages-list glass" id="messagesList"><p class="empty-state">No messages yet.</p></div>
+        </section>
+
+        <!-- Social / Website Section -->
+        <section id="socialSection" class="content-section">
+            <h2>Social Media & Website</h2><p class="section-desc">Connect your social media profiles and verify each link before saving.</p>
+            <div class="glass form-container">
+                <div class="form-grid">
+                    <div class="form-group"><label for="socialWebsite">Website</label><input type="url" id="socialWebsite" placeholder="https://yourwebsite.com"></div>
+                    <div class="link-actions"><button class="btn-secondary test-link-btn" data-field="website">Test Website</button><button class="btn-secondary remove-link-btn" data-field="website">Remove Website</button></div>
+
+                    <div class="form-group"><label for="socialFacebook">Facebook</label><input type="url" id="socialFacebook" placeholder="https://facebook.com/yourpage"></div>
+                    <div class="link-actions"><button class="btn-secondary test-link-btn" data-field="facebook">Test Facebook</button><button class="btn-secondary remove-link-btn" data-field="facebook">Remove Facebook</button></div>
+
+                    <div class="form-group"><label for="socialInstagram">Instagram</label><input type="url" id="socialInstagram" placeholder="https://instagram.com/yourhandle"></div>
+                    <div class="link-actions"><button class="btn-secondary test-link-btn" data-field="instagram">Test Instagram</button><button class="btn-secondary remove-link-btn" data-field="instagram">Remove Instagram</button></div>
+
+                    <div class="form-group"><label for="socialWhatsapp">WhatsApp</label><input type="tel" id="socialWhatsapp" placeholder="+94 XX XXX XXXX"></div>
+                    <div class="link-actions"><button class="btn-secondary test-link-btn" data-field="whatsapp">Save WhatsApp</button><button class="btn-secondary remove-link-btn" data-field="whatsapp">Remove WhatsApp</button></div>
+                </div>
+
+                <div class="integration-status"><div class="status-info"><i class="fas fa-info-circle"></i><p>Test each link; valid ones are saved automatically into your profile.</p></div></div>
+
+                <div class="integration-details">
+                    <p><strong>Website:</strong> <span id="statusWebsite">Not connected</span></p>
+                    <p><strong>Facebook:</strong> <span id="statusFacebook">Not connected</span></p>
+                    <p><strong>Instagram:</strong> <span id="statusInstagram">Not connected</span></p>
+                    <p><strong>WhatsApp:</strong> <span id="statusWhatsapp">Not connected</span></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings Section -->
+        <section id="settingsSection" class="content-section">
+            <h2>Settings</h2><p class="section-desc">Manage your account preferences and password.</p>
+            <div class="glass form-container"><h3>Change Password</h3><div class="form-group"><label for="currentPassword">Current Password</label><input type="password" id="currentPassword" placeholder="Enter current password"></div><div class="form-group"><label for="newPassword">New Password</label><input type="password" id="newPassword" placeholder="Enter new password"></div><div class="form-group"><label for="confirmNewPassword">Confirm New Password</label><input type="password" id="confirmNewPassword" placeholder="Confirm new password"></div><div class="form-actions"><button class="btn-primary" id="changePasswordBtn">Update Password</button></div><hr><h3>Notification Preferences</h3><div class="checkbox-group"><label class="checkbox-container"><input type="checkbox" id="emailNotifications" checked><span>Email notifications for new bookings</span></label><label class="checkbox-container"><input type="checkbox" id="messageNotifications" checked><span>Email notifications for new messages</span></label><label class="checkbox-container"><input type="checkbox" id="paymentNotifications" checked><span>Email notifications for payment updates</span></label><label class="checkbox-container"><input type="checkbox" id="reviewNotifications" checked><span>Email notifications for new reviews</span></label></div><button class="btn-primary" id="saveSettingsBtn">Save Settings</button></div>
+        </section>
+    </main>
+</div>
+
+<script type="module" src="../../../assets/js/vendor/individual/dashboardIndividual.js"></script>
+</body>
+</html>
