@@ -24,6 +24,81 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let isPasswordValid = false;
 
+    // ==============================
+    // AI AUTO-FILL LOGIC
+    // ==============================
+    const autoFillBtn = document.getElementById('autoFillBtn');
+    const aiStatusMessage = document.getElementById('aiStatusMessage');
+    let aiExtractedDescription = ""; // We will save this to Firebase later
+
+    if (autoFillBtn) {
+        autoFillBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const websiteUrl = document.getElementById('website').value.trim();
+
+            if (!websiteUrl) {
+                alert("Please enter a website URL first!");
+                return;
+            }
+
+            // Change button to show it's loading
+            const originalText = autoFillBtn.innerHTML;
+            autoFillBtn.innerHTML = '⏳ AI is reading website... please wait...';
+            autoFillBtn.disabled = true;
+            aiStatusMessage.style.display = 'none';
+
+            try {
+                // Send the URL to your new Node.js server!
+                const response = await fetch('http://localhost:3000/api/extract-vendor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: websiteUrl })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const aiData = result.data;
+                    
+                    // Magically populate the HTML input fields!
+                    if(aiData.companyName) document.getElementById('companyName').value = aiData.companyName;
+                    if(aiData.contactPerson) document.getElementById('contactPerson').value = aiData.contactPerson;
+                    if(aiData.phone) document.getElementById('phone').value = aiData.phone;
+                    if(aiData.email) document.getElementById('email').value = aiData.email;
+                    if(aiData.address) document.getElementById('address').value = aiData.address;
+                    
+                    // Match the category dropdown
+                    if(aiData.category) {
+                        const categorySelect = document.getElementById('category');
+                        for (let i = 0; i < categorySelect.options.length; i++) {
+                            if (categorySelect.options[i].text.toLowerCase().includes(aiData.category.toLowerCase())) {
+                                categorySelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Save description for the database
+                    if(aiData.description) {
+                        aiExtractedDescription = aiData.description;
+                    }
+
+                    aiStatusMessage.textContent = "✨ AI successfully filled your details!";
+                    aiStatusMessage.style.display = 'block';
+
+                } else {
+                    alert("AI could not read the website. Some sites block automated tools.");
+                }
+            } catch (error) {
+                console.error("AI Error:", error);
+                alert("Backend server is not running! Make sure you typed 'node server.js' in the terminal.");
+            } finally {
+                autoFillBtn.innerHTML = originalText;
+                autoFillBtn.disabled = false;
+            }
+        });
+    }
+
     // Password visibility toggle for Password field
     if (togglePassword) {
         togglePassword.addEventListener('click', function(e) {
@@ -194,6 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 category: category,
                 district: district,
                 website: website || "",
+                description: aiExtractedDescription || "", // Adds the AI description to Firebase!
                 role: "vendor",
                 vendorType: "company",
                 status: "pending",

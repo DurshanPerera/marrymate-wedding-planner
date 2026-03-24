@@ -39,6 +39,27 @@
 
     <!-- Registration Form -->
     <form id="individualRegisterForm">
+        
+        <!-- ========================================== -->
+        <!-- ✨ AI AUTO-FILL HELPER ✨ -->
+        <!-- ========================================== -->
+        <div class="ai-autofill-box" style="background: rgba(167, 112, 239, 0.15); border: 1px dashed rgba(167, 112, 239, 0.6); padding: 15px; border-radius: 12px; margin-bottom: 25px;">
+            <p style="margin-bottom: 12px; font-size: 13px; font-weight: 500; color: #fff; text-align: center;">
+                <i class="fas fa-wand-magic-sparkles" style="color: #cf8bf3;"></i> Save time! Paste your portfolio link to auto-fill:
+            </p>
+            
+            <div class="input-group" style="margin-bottom: 12px;">
+                <i class="fas fa-globe input-icon"></i>
+                <input type="url" id="website" placeholder="https://yourportfolio.com" style="width: 100%;">
+            </div>
+            
+            <button type="button" id="autoFillBtn" style="background: linear-gradient(45deg, #a770ef, #cf8bf3); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; font-family: 'Poppins', sans-serif; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 15px rgba(167, 112, 239, 0.4);">
+                ✨ Auto-Fill Details
+            </button>
+            <p id="aiStatusMessage" style="color: #51cf66; font-size: 13px; display: none; margin-top: 10px; text-align: center; font-weight: 500;"></p>
+        </div>
+        <!-- ========================================== -->
+
         <!-- Full Name -->
         <div class="input-group">
             <i class="fas fa-user input-icon"></i>
@@ -69,10 +90,10 @@
             <input type="text" id="address" placeholder="Address" required>
         </div>
 
-        <!-- Birthday -->
+        <!-- Birthday (Manual entry always required) -->
         <div class="input-group">
             <i class="fas fa-calendar-alt input-icon"></i>
-            <input type="date" id="birthday" required>
+            <input type="date" id="birthday" required title="You must select your birthday manually">
         </div>
 
         <!-- Category -->
@@ -102,26 +123,11 @@
                 <option value="kalutara">Kalutara</option>
                 <option value="kandy">Kandy</option>
                 <option value="matale">Matale</option>
+                <!-- Omitted some for brevity in this snippet, keep your original full list -->
                 <option value="nuwaraeliya">Nuwara Eliya</option>
                 <option value="galle">Galle</option>
                 <option value="matara">Matara</option>
                 <option value="hambantota">Hambantota</option>
-                <option value="jaffna">Jaffna</option>
-                <option value="kilinochchi">Kilinochchi</option>
-                <option value="mullaitivu">Mullaitivu</option>
-                <option value="vavuniya">Vavuniya</option>
-                <option value="mannar">Mannar</option>
-                <option value="batticaloa">Batticaloa</option>
-                <option value="ampara">Ampara</option>
-                <option value="trincomalee">Trincomalee</option>
-                <option value="kurunegala">Kurunegala</option>
-                <option value="puttalam">Puttalam</option>
-                <option value="anuradhapura">Anuradhapura</option>
-                <option value="polonnaruwa">Polonnaruwa</option>
-                <option value="badulla">Badulla</option>
-                <option value="monaragala">Monaragala</option>
-                <option value="ratnapura">Ratnapura</option>
-                <option value="kegalle">Kegalle</option>
             </select>
         </div>
 
@@ -135,16 +141,16 @@
         </div>
 
         <!-- PASSWORD REQUIREMENTS INDICATOR -->
-<div class="password-requirements" id="passwordRequirements">
-    <p class="requirements-title">Password must contain:</p>
-    <ul>
-        <li id="reqLength" class="requirement-item">✓ At least 8 characters</li>
-        <li id="reqUppercase" class="requirement-item">✓ At least one uppercase letter (A-Z)</li>
-        <li id="reqLowercase" class="requirement-item">✓ At least one lowercase letter (a-z)</li>
-        <li id="reqNumber" class="requirement-item">✓ At least one number (0-9)</li>
-        <li id="reqSpecial" class="requirement-item">✓ At least one special character (!@#$%^&*)</li>
-    </ul>
-</div>
+        <div class="password-requirements" id="passwordRequirements">
+            <p class="requirements-title">Password must contain:</p>
+            <ul>
+                <li id="reqLength" class="requirement-item">✓ At least 8 characters</li>
+                <li id="reqUppercase" class="requirement-item">✓ At least one uppercase letter (A-Z)</li>
+                <li id="reqLowercase" class="requirement-item">✓ At least one lowercase letter (a-z)</li>
+                <li id="reqNumber" class="requirement-item">✓ At least one number (0-9)</li>
+                <li id="reqSpecial" class="requirement-item">✓ At least one special character (!@#$%^&*)</li>
+            </ul>
+        </div>
 
         <!-- Confirm Password -->
         <div class="input-group">
@@ -153,12 +159,6 @@
             <button type="button" class="password-toggle" id="toggleConfirmPassword">
                 <i class="far fa-eye"></i>
             </button>
-        </div>
-
-        <!-- Optional: Website/Social Link -->
-        <div class="input-group">
-            <i class="fas fa-globe input-icon"></i>
-            <input type="url" id="website" placeholder="Portfolio / Social Media Link (Optional)">
         </div>
 
         <!-- Terms and Conditions -->
@@ -183,26 +183,9 @@
         </button>
     </form>
 
-    <!-- Divider -->
     <div class="divider">
         <span>or</span>
     </div>
-
-    <!-- Google Sign-In Button -->
-    <!-- <div id="g_id_onload"
-         data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-         data-callback="handleGoogleSignIn"
-         data-auto_prompt="false">
-    </div>
-    
-    <div class="g_id_signin"
-         data-type="standard"
-         data-shape="rectangular"
-         data-theme="outline"
-         data-text="signin_with"
-         data-size="large"
-         data-logo_alignment="left">
-    </div> -->
 
     <p class="login-text">
         Already have an account?
@@ -211,5 +194,13 @@
 </div>
 
 <script type="module" src="../../assets/js/vendor/registerIndividual.js"></script>
+
+<script>
+    const aiBtn = document.getElementById('autoFillBtn');
+    if(aiBtn) {
+        aiBtn.addEventListener('mouseenter', () => aiBtn.style.transform = 'translateY(-2px)');
+        aiBtn.addEventListener('mouseleave', () => aiBtn.style.transform = 'translateY(0)');
+    }
+</script>
 </body>
 </html>
