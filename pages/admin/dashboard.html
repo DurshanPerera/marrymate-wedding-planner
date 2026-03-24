@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - MarryMate</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="../../assets/css/admin/dashboard.css">
+</head>
+<body>
+
+<div class="dashboard-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar glass">
+        <div class="sidebar-header">
+            <div class="logo-area">
+                <img src="../../assets/images/marryMateLogo.png" alt="MarryMate" class="sidebar-logo">
+                <h3>MarryMate</h3>
+            </div>
+            <p class="sidebar-role">Admin Panel</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-section="dashboard"><i class="fas fa-chart-line"></i><span>Dashboard</span></a>
+            <a href="#" class="nav-item" data-section="approvals"><i class="fas fa-user-check"></i><span>Vendor Approvals</span><span class="badge" id="pendingApprovalsBadge">0</span></a>
+            <a href="#" class="nav-item" data-section="companyVendors"><i class="fas fa-building"></i><span>Company Vendors</span></a>
+            <a href="#" class="nav-item" data-section="individualVendors"><i class="fas fa-user-tie"></i><span>Individual Vendors</span></a>
+            <a href="#" class="nav-item" data-section="customers"><i class="fas fa-users"></i><span>Customers</span></a>
+            <a href="#" class="nav-item" data-section="reviews"><i class="fas fa-star"></i><span>Reviews & Reports</span></a>
+            <a href="#" class="nav-item" data-section="messages"><i class="fas fa-envelope"></i><span>Messages</span><span class="badge" id="messageBadge">0</span></a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i><span>Logout</span></a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Header -->
+        <header class="top-header glass">
+            <div class="header-left">
+                <h1 id="pageTitle">Dashboard</h1>
+                <p id="pageSubtitle">Welcome!, Admin. Here's your platform overview.</p>
+            </div>
+            <div class="header-right">
+                <div class="admin-info">
+                    <div class="admin-name" id="adminName"><i class="fas fa-user-shield"></i><span>Administrator</span></div>
+                    <div class="profile-icon"><i class="fas fa-user-circle"></i></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Section -->
+        <section id="dashboardSection" class="content-section active">
+            <div class="stats-grid">
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><h3>Total Customers</h3><p class="stat-value" id="totalCustomers">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-building"></i></div><div class="stat-info"><h3>Company Vendors</h3><p class="stat-value" id="totalCompanyVendors">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-user-tie"></i></div><div class="stat-info"><h3>Individual Vendors</h3><p class="stat-value" id="totalIndividualVendors">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-clock"></i></div><div class="stat-info"><h3>Pending Approvals</h3><p class="stat-value" id="pendingApprovals">0</p></div></div>
+
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-info"><h3>Total Reviews</h3><p class="stat-value" id="totalReviews">0</p></div></div>
+                <div class="stat-card glass"><div class="stat-icon"><i class="fas fa-envelope"></i></div><div class="stat-info"><h3>Unread Messages</h3><p class="stat-value" id="unreadMessages">0</p></div></div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Recent Pending Approvals</h3><span class="mini-chip">Needs Review</span></div><div class="recent-list" id="recentApprovals"><p class="empty-state">No pending approvals</p></div><a href="#" class="view-all" data-section="approvals">View All →</a></div>
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Platform Activity</h3><span class="mini-chip">Monthly</span></div><canvas id="activityChart"></canvas></div>
+                <div class="glass dashboard-card"><div class="card-header-row"><h3>Recent Reviews</h3><span class="mini-chip">Customer Feedback</span></div><div class="recent-list" id="recentReviews"><p class="empty-state">No recent reviews</p></div><a href="#" class="view-all" data-section="reviews">View All →</a></div>
+            </div>
+        </section>
+
+        <!-- Vendor Approvals Section -->
+        <section id="approvalsSection" class="content-section">
+            <h2>Vendor Approvals</h2>
+            <p class="section-desc">Review and approve pending vendor registrations.</p>
+            
+            <div class="tabs-row">
+                <button class="tab-btn active" data-tab="pendingCompanyTab">Pending Company Vendors</button>
+                <button class="tab-btn" data-tab="pendingIndividualTab">Pending Individual Vendors</button>
+            </div>
+
+            <div id="pendingCompanyTab" class="tab-panel active">
+                <div class="table-container glass">
+                    <table class="data-table">
+                        <thead><tr><th>Company Name</th><th>Contact Person</th><th>Email</th><th>Phone</th><th>Category</th><th>District</th><th>Registered</th><th>Actions</th></tr></thead>
+                        <tbody id="pendingCompanyTableBody"><tr><td colspan="8" class="empty-state">No pending company vendors</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="pendingIndividualTab" class="tab-panel">
+                <div class="table-container glass">
+                    <table class="data-table">
+                        <thead><tr><th>Full Name</th><th>Service Name</th><th>Email</th><th>Phone</th><th>Category</th><th>District</th><th>Registered</th><th>Actions</th></tr></thead>
+                        <tbody id="pendingIndividualTableBody"><tr><td colspan="8" class="empty-state">No pending individual vendors</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Company Vendors Section -->
+        <section id="companyVendorsSection" class="content-section">
+            <div class="section-header"><div><h2>Company Vendors</h2><p class="section-desc">Manage all company vendor accounts.</p></div><div class="filter-group"><input type="text" id="searchCompany" placeholder="Search company vendors..." class="search-input"></div></div>
+            <div class="table-container glass">
+                <table class="data-table">
+                    <thead><tr><th>Company Name</th><th>Contact Person</th><th>Email</th><th>Phone</th><th>Category</th><th>District</th><th>Status</th><th>Active</th><th>Actions</th></tr></thead>
+                    <tbody id="companyVendorsTableBody"><tr><td colspan="9" class="empty-state">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Individual Vendors Section -->
+        <section id="individualVendorsSection" class="content-section">
+            <div class="section-header"><div><h2>Individual Vendors</h2><p class="section-desc">Manage all individual vendor accounts.</p></div><div class="filter-group"><input type="text" id="searchIndividual" placeholder="Search individual vendors..." class="search-input"></div></div>
+            <div class="table-container glass">
+                <table class="data-table">
+                    <thead><tr><th>Full Name</th><th>Service Name</th><th>Email</th><th>Phone</th><th>Category</th><th>District</th><th>Status</th><th>Active</th><th>Actions</th></tr></thead>
+                    <tbody id="individualVendorsTableBody"><tr><td colspan="9" class="empty-state">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Customers Section -->
+        <section id="customersSection" class="content-section">
+            <div class="section-header"><div><h2>Customers</h2><p class="section-desc">Manage customer accounts.</p></div><div class="filter-group"><input type="text" id="searchCustomer" placeholder="Search customers..." class="search-input"></div></div>
+            <div class="table-container glass">
+                <table class="data-table">
+                    <thead><tr><th>Full Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody id="customersTableBody"><tr><td colspan="7" class="empty-state">Loading...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Reviews Section -->
+        <section id="reviewsSection" class="content-section">
+            <h2>Reviews & Reports</h2><p class="section-desc">Monitor customer feedback and vendor ratings.</p>
+            <div class="reviews-summary-grid">
+                <div class="glass summary-card"><h3>Average Platform Rating</h3><p class="summary-value" id="avgPlatformRating">0.0</p></div>
+                <div class="glass summary-card"><h3>Total Reviews</h3><p class="summary-value" id="totalReviewsCount">0</p></div>
+                <div class="glass summary-card"><h3>5 Star Reviews</h3><p class="summary-value" id="fiveStarTotal">0</p></div>
+            </div>
+            <div class="messages-list glass" id="reviewsList"><p class="empty-state">No reviews yet.</p></div>
+        </section>
+
+        <!-- Messages Section -->
+        <section id="messagesSection" class="content-section">
+            <h2>Messages & Contact Requests</h2><p class="section-desc">View inquiries from vendors and customers.</p>
+            <div class="messages-list glass" id="adminMessagesList"><p class="empty-state">No messages yet.</p></div>
+        </section>
+    </main>
+</div>
+
+<script type="module" src="../../assets/js/admin/dashboard.js"></script>
+</body>
+</html>
