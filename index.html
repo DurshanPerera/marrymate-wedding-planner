@@ -13,7 +13,25 @@
 <body>
 
 <!-- NAVBAR -->
-<div id="navbar"></div>
+<div class="navbar glass">
+    <div class="logoText">
+        <img class="logoPic" src="../assets/images/marryMateLogo.png" alt="MarryMate Logo">
+        MarryMate
+    </div>
+
+    <div class="nav-links">
+        <a href="index.html" class="active">Home</a>
+        <a href="#">About Us</a>
+        <a href="#">Features</a>
+        <a href="../pages/vendor/vendor.html">Vendors</a>
+        <a href="#">Contact</a>
+    </div>
+
+    <div class="auth-buttons">
+        <button onclick="location.href='../pages/login.html'" class="btn">Login</button>
+        <button onclick="location.href='../pages/customer/register.html'" class="btn">Register</button>
+    </div>
+</div>
 
 <!-- HERO -->
 <div class="hero glass">
@@ -217,7 +235,6 @@
 <script src="../assets/js/include.js"></script>
 
 <script>
-  loadComponent("navbar", "/components/navbar.html");
   loadComponent("footer", "/components/footer.html");
 </script>
 
