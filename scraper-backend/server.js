@@ -22,6 +22,20 @@ app.post('/api/extract-vendor', async (req, res) => {
         // 1. Fetch the Home Page
         const response1 = await axios.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
         const $1 = cheerio.load(response1.data);
+
+        // --- NEW: FIND THE MAIN WEBSITE IMAGE ---
+        let mainImageUrl = $1('meta[property="og:image"]').attr('content') || 
+                           $1('meta[name="twitter:image"]').attr('content') || 
+                           $1('link[rel="apple-touch-icon"]').attr('href') || null;
+                           
+        // If the image link is broken or relative (e.g., "/images/logo.png"), fix it to be a full URL
+        if (mainImageUrl && mainImageUrl.startsWith('/')) {
+            try {
+                mainImageUrl = new URL(mainImageUrl, targetUrl).href;
+            } catch(e) {}
+        }
+        console.log(`🖼️ Found Main Image: ${mainImageUrl}`);
+        // ----------------------------------------
         
         // 2. SEARCH FOR A CONTACT PAGE LINK!
         let contactPageUrl = null;
@@ -90,7 +104,7 @@ app.post('/api/extract-vendor', async (req, res) => {
         const extractedData = JSON.parse(aiResponse.text);
         console.log("4. AI successfully found these details:", extractedData);
 
-        res.json({ success: true, data: extractedData });
+        res.json({ success: true, data: extractedData, imageUrl: mainImageUrl });
 
     } catch (error) {
         console.error("Error occurred:", error.message);
