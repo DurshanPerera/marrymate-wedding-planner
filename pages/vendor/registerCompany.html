@@ -39,6 +39,27 @@
 
     <!-- Registration Form -->
     <form id="companyRegisterForm">
+        
+        <!-- ========================================== -->
+        <!-- ✨ AI AUTO-FILL HELPER ✨ -->
+        <!-- ========================================== -->
+        <div class="ai-autofill-box" style="background: rgba(167, 112, 239, 0.15); border: 1px dashed rgba(167, 112, 239, 0.6); padding: 15px; border-radius: 12px; margin-bottom: 25px;">
+            <p style="margin-bottom: 12px; font-size: 13px; font-weight: 500; color: #fff; text-align: center;">
+                <i class="fas fa-wand-magic-sparkles" style="color: #cf8bf3;"></i> Save time! Paste your website to auto-fill:
+            </p>
+            
+            <div class="input-group" style="margin-bottom: 12px;">
+                <i class="fas fa-globe input-icon"></i>
+                <input type="url" id="website" placeholder="https://yourcompany.com" style="width: 100%;">
+            </div>
+            
+            <button type="button" id="autoFillBtn" style="background: linear-gradient(45deg, #a770ef, #cf8bf3); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: 600; font-family: 'Poppins', sans-serif; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 4px 15px rgba(167, 112, 239, 0.4);">
+                ✨ Auto-Fill Details
+            </button>
+            <p id="aiStatusMessage" style="color: #51cf66; font-size: 13px; display: none; margin-top: 10px; text-align: center; font-weight: 500;"></p>
+        </div>
+        <!-- ========================================== -->
+
         <!-- Company Name -->
         <div class="input-group">
             <i class="fas fa-building input-icon"></i>
@@ -151,12 +172,6 @@
             </button>
         </div>
 
-        <!-- Optional: Website/Social Link -->
-        <div class="input-group">
-            <i class="fas fa-globe input-icon"></i>
-            <input type="url" id="website" placeholder="Website / Social Media Link (Optional)">
-        </div>
-
         <!-- Terms and Conditions -->
         <div class="terms-group">
             <label class="checkbox-container">
@@ -184,22 +199,6 @@
         <span>or</span>
     </div>
 
-    <!-- Google Sign-In Button -->
-    <!-- <div id="g_id_onload"
-         data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
-         data-callback="handleGoogleSignIn"
-         data-auto_prompt="false">
-    </div>
-    
-    <div class="g_id_signin"
-         data-type="standard"
-         data-shape="rectangular"
-         data-theme="outline"
-         data-text="signin_with"
-         data-size="large"
-         data-logo_alignment="left">
-    </div> -->
-
     <p class="login-text">
         Already have an account?
         <a href="../login.html">Sign In</a>
@@ -207,5 +206,13 @@
 </div>
 
 <script type="module" src="../../assets/js/vendor/registerCompany.js"></script>
+
+<script>
+    const aiBtn = document.getElementById('autoFillBtn');
+    if(aiBtn) {
+        aiBtn.addEventListener('mouseenter', () => aiBtn.style.transform = 'translateY(-2px)');
+        aiBtn.addEventListener('mouseleave', () => aiBtn.style.transform = 'translateY(0)');
+    }
+</script>
 </body>
 </html>

@@ -170,6 +170,93 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ==============================
+    // AI AUTO-FILL LOGIC
+    // ==============================
+    const autoFillBtn = document.getElementById('autoFillBtn');
+    const aiStatusMessage = document.getElementById('aiStatusMessage');
+    let aiExtractedDescription = ""; // Save to Firebase later
+
+    if (autoFillBtn) {
+        autoFillBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const websiteUrl = document.getElementById('website').value.trim();
+
+            if (!websiteUrl) {
+                showError("Please enter a website URL first!");
+                return;
+            }
+
+            // Change button state
+            const originalText = autoFillBtn.innerHTML;
+            autoFillBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI is reading website...';
+            autoFillBtn.disabled = true;
+            aiStatusMessage.style.display = 'none';
+
+            try {
+                // Call Node.js Backend
+                const response = await fetch('http://localhost:3000/api/extract-vendor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: websiteUrl })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const aiData = result.data;
+                    
+                    // Map data to INDIVIDUAL fields
+                    // Use contact person as Full Name if found, otherwise use Company Name
+                    if(aiData.contactPerson || aiData.companyName) {
+                        document.getElementById('fullName').value = aiData.contactPerson || aiData.companyName;
+                    }
+                    if(aiData.companyName) document.getElementById('serviceName').value = aiData.companyName;
+                    if(aiData.phone) document.getElementById('phone').value = aiData.phone;
+                    if(aiData.email) document.getElementById('email').value = aiData.email;
+                    if(aiData.address) document.getElementById('address').value = aiData.address;
+                    
+                    // Select the category
+                    if(aiData.category) {
+                        const categorySelect = document.getElementById('category');
+                        for (let i = 0; i < categorySelect.options.length; i++) {
+                            if (categorySelect.options[i].text.toLowerCase().includes(aiData.category.toLowerCase())) {
+                                categorySelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Store description
+                    if(aiData.description) {
+                        aiExtractedDescription = aiData.description;
+                    }
+
+                    aiStatusMessage.textContent = "✨ AI successfully filled your details! (Please select your Birthday manually)";
+                    aiStatusMessage.style.display = 'block';
+
+                    // Briefly highlight the filled boxes
+                    ['fullName', 'serviceName', 'phone', 'email', 'address'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if(el && el.value) {
+                            el.style.boxShadow = '0 0 10px rgba(167, 112, 239, 0.5)';
+                            setTimeout(() => el.style.boxShadow = 'none', 2000);
+                        }
+                    });
+
+                } else {
+                    showError("AI could not read the website.");
+                }
+            } catch (error) {
+                console.error("AI Error:", error);
+                showError("Backend server is not running! (node server.js)");
+            } finally {
+                autoFillBtn.innerHTML = originalText;
+                autoFillBtn.disabled = false;
+            }
+        });
+    }
+
     // Form submission
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -215,6 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 category: category,
                 district: district,
                 website: website || "",
+                description: aiExtractedDescription || "",
                 role: "vendor",
                 vendorType: "individual",
                 status: "pending",
