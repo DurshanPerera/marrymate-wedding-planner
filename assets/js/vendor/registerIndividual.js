@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const autoFillBtn = document.getElementById('autoFillBtn');
     const aiStatusMessage = document.getElementById('aiStatusMessage');
     let aiExtractedDescription = ""; // Save to Firebase later
+    let aiExtractedImage = "";
 
     if (autoFillBtn) {
         autoFillBtn.addEventListener('click', async function(e) {
@@ -230,6 +231,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Store description
                     if(aiData.description) {
                         aiExtractedDescription = aiData.description;
+                    }
+
+                      if(result.imageUrl) {
+                        aiExtractedImage = result.imageUrl;
+                        console.log("🖼️ AI captured profile picture:", aiExtractedImage);
                     }
 
                     aiStatusMessage.textContent = "✨ AI successfully filled your details! (Please select your Birthday manually)";
@@ -303,6 +309,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 district: district,
                 website: website || "",
                 description: aiExtractedDescription || "",
+                profilePicture: aiExtractedImage || "",
                 role: "vendor",
                 vendorType: "individual",
                 status: "pending",
