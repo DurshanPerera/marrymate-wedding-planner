@@ -96,6 +96,8 @@ body {
 .nav-links {
     display: flex;
     gap: 40px;
+    flex: 1;
+    justify-content: center;
 }
 
 .nav-links a {
