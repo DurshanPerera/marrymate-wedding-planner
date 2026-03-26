@@ -1,6 +1,6 @@
 import { auth, db } from "../firebase/firebase-config.js";
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { setDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { setDoc, doc, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('companyRegisterForm');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==============================
     const autoFillBtn = document.getElementById('autoFillBtn');
     const aiStatusMessage = document.getElementById('aiStatusMessage');
-    let aiExtractedDescription = ""; // We will save this to Firebase later
+    let aiExtractedDescription = "";
     let aiExtractedImage = "";
 
     if (autoFillBtn) {
@@ -42,14 +42,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Change button to show it's loading
             const originalText = autoFillBtn.innerHTML;
             autoFillBtn.innerHTML = '⏳ AI is reading website... please wait...';
             autoFillBtn.disabled = true;
             aiStatusMessage.style.display = 'none';
 
             try {
-                // Send the URL to your new Node.js server!
                 const response = await fetch('http://localhost:3000/api/extract-vendor', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -61,14 +59,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.success) {
                     const aiData = result.data;
                     
-                    // Magically populate the HTML input fields!
                     if(aiData.companyName) document.getElementById('companyName').value = aiData.companyName;
                     if(aiData.contactPerson) document.getElementById('contactPerson').value = aiData.contactPerson;
                     if(aiData.phone) document.getElementById('phone').value = aiData.phone;
                     if(aiData.email) document.getElementById('email').value = aiData.email;
                     if(aiData.address) document.getElementById('address').value = aiData.address;
                     
-                    // Match the category dropdown
                     if(aiData.category) {
                         const categorySelect = document.getElementById('category');
                         for (let i = 0; i < categorySelect.options.length; i++) {
@@ -79,12 +75,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                     if(result.imageUrl) {
+                    if(result.imageUrl) {
                         aiExtractedImage = result.imageUrl;
                         console.log("🖼️ AI captured profile picture:", aiExtractedImage);
                     }
 
-                    // Save description for the database
                     if(aiData.description) {
                         aiExtractedDescription = aiData.description;
                     }
@@ -103,6 +98,111 @@ document.addEventListener('DOMContentLoaded', function() {
                 autoFillBtn.disabled = false;
             }
         });
+    }
+
+    // ==============================
+    // PRODUCT SCRAPING FUNCTION - SEPARATE COLLECTION
+    // ==============================
+    async function triggerProductScraping(vendorId, websiteUrl, vendorType, companyName) {
+        if (!websiteUrl) {
+            console.log("No website URL provided, skipping product scraping");
+            return;
+        }
+        
+        console.log(`🔄 Starting product scraping for ${vendorId} (${companyName}) at ${websiteUrl}`);
+        
+        try {
+            // Call the scraping server
+            const response = await fetch('http://localhost:3000/api/scrape-products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    url: websiteUrl, 
+                    vendorId: vendorId, 
+                    vendorType: vendorType 
+                })
+            });
+            
+            const result = await response.json();
+            console.log("Scraping API response:", result);
+            
+            if (result.success && result.products && result.products.length > 0) {
+                console.log(`✅ Found ${result.products.length} products for vendor ${vendorId}`);
+                
+                // Use a separate products collection (not subcollection)
+                const productsCollection = collection(db, "products");
+                
+                let savedCount = 0;
+                for (const product of result.products) {
+                    try {
+                        const productData = {
+                            vendorId: vendorId,
+                            vendorType: vendorType,
+                            vendorName: companyName,
+                            title: product.title || "Untitled Product",
+                            description: product.description || "",
+                            price: product.price || "Price on request",
+                            priceNumber: product.priceNumber || null,
+                            images: product.images || [],
+                            scrapedAt: new Date().toISOString(),
+                            status: "active",
+                            isActive: true,
+                            source: "web_scraping"
+                        };
+                        
+                        await addDoc(productsCollection, productData);
+                        savedCount++;
+                        console.log(`   ✅ Saved product: ${productData.title.substring(0, 50)}...`);
+                    } catch (productError) {
+                        console.error(`   ❌ Error saving product: ${product.title}`, productError);
+                    }
+                }
+                
+                console.log(`✅ Successfully stored ${savedCount}/${result.products.length} products in 'products' collection for vendor ${vendorId}`);
+                
+                // Update vendor document with scraping info
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productsScrapedAt: new Date().toISOString(),
+                    productsCount: savedCount,
+                    productScrapingStatus: "completed",
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+                
+                console.log(`✅ Updated vendor document with product count: ${savedCount}`);
+                
+            } else if (result.success && (!result.products || result.products.length === 0)) {
+                console.log(`⚠️ No products found for vendor ${vendorId}`);
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "no_products_found",
+                    productsCount: 0,
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            } else {
+                console.log(`❌ Scraping failed for vendor ${vendorId}:`, result.error);
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "failed",
+                    scrapingError: result.error || "Unknown error",
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            }
+            
+        } catch (error) {
+            console.error("❌ Error in product scraping:", error);
+            // Update vendor with error status
+            try {
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "failed",
+                    scrapingError: error.message,
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            } catch (dbError) {
+                console.error("Failed to update vendor status:", dbError);
+            }
+        }
     }
 
     // Password visibility toggle for Password field
@@ -275,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 category: category,
                 district: district,
                 website: website || "",
-                description: aiExtractedDescription || "", // Adds the AI description to Firebase!
+                description: aiExtractedDescription || "",
                 profilePicture: aiExtractedImage || "",
                 role: "vendor",
                 vendorType: "company",
@@ -283,10 +383,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 authProvider: "password",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                isActive: true
+                isActive: true,
+                productScrapingStatus: "pending"
             });
 
             showSuccess('Registration successful! Please wait for admin approval.');
+            
+            // Trigger product scraping in the background
+            if (website) {
+                triggerProductScraping(user.uid, website, "company", companyName);
+            }
             
             setTimeout(() => {
                 window.location.href = '../login.html';
@@ -392,18 +498,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Google Sign-In handler
 function handleGoogleSignIn(response) {
-    // Decode the JWT token to get user info
     const userData = parseJwt(response.credential);
     
-    // Pre-fill form with Google data
     document.getElementById('contactPerson').value = userData.name || '';
     document.getElementById('email').value = userData.email || '';
     document.getElementById('email').readOnly = true;
     
-    // Show success message
     showGoogleSuccess('Google sign-in successful! Please complete the remaining fields.');
     
-    // Auto-fill company name from email domain (optional)
     if (userData.email) {
         const domain = userData.email.split('@')[1];
         const companyHint = domain.split('.')[0];

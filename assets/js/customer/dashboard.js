@@ -36,6 +36,8 @@ let savedVendorsList = [];
 let bookingsList = [];
 let messagesList = [];
 let budgetPlan = null;
+let currentVendorForModal = null;
+let currentServiceImages = [];
 
 // Budget allocation percentages
 const BUDGET_ALLOCATION = {
@@ -116,6 +118,19 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
+// Helper function to safely load images with fallback
+function getImageWithFallback(url, fallbackUrl = 'https://via.placeholder.com/400x300?text=No+Image') {
+    if (!url) return fallbackUrl;
+    // Add a timestamp to prevent caching issues
+    return url;
+}
+
+// Helper to handle image errors
+function handleImageError(img) {
+    img.onerror = null;
+    img.src = 'https://via.placeholder.com/400x300?text=Image+Not+Available';
+}
+
 /* =========================================================
    AUTH & INIT
 ========================================================= */
@@ -145,7 +160,6 @@ async function loadCustomerData() {
             currentCustomerData = userSnap.data();
             updateUIWithCustomerData();
         } else {
-            // Create initial customer profile
             currentCustomerData = {
                 uid: currentUser.uid,
                 fullName: currentUser.displayName || "",
@@ -162,13 +176,11 @@ async function loadCustomerData() {
 function updateUIWithCustomerData() {
     if (!currentCustomerData) return;
     
-    // Update customer name
     const customerNameSpan = document.querySelector("#customerName span");
     if (customerNameSpan) {
         customerNameSpan.textContent = escapeHtml(currentCustomerData.fullName || "Customer");
     }
     
-    // Fill profile form
     document.getElementById("fullName").value = currentCustomerData.fullName || "";
     document.getElementById("email").value = currentCustomerData.email || "";
     document.getElementById("phone").value = currentCustomerData.phone || "";
@@ -179,7 +191,6 @@ function updateUIWithCustomerData() {
     document.getElementById("preferredDistrict").value = currentCustomerData.district || "";
     document.getElementById("weddingPreferences").value = currentCustomerData.weddingPreferences || "";
     
-    // Load saved budget if exists
     if (currentCustomerData.budget) {
         document.getElementById("budgetAmount").value = currentCustomerData.budget;
     }
@@ -226,9 +237,38 @@ async function loadVendors() {
             vendorsList.push({ id: doc.id, type: "individual", ...doc.data() });
         });
         
+        console.log("Vendors loaded:", vendorsList);
+        
         renderVendors();
     } catch (error) {
         console.error("Error loading vendors:", error);
+    }
+}
+
+async function loadProductsForVendor(vendorId) {
+    try {
+        const productsRef = collection(db, "products");
+        const q = query(productsRef, where("vendorId", "==", vendorId), where("isActive", "==", true));
+        const snapshot = await getDocs(q);
+        const products = [];
+        snapshot.forEach(doc => {
+            const productData = doc.data();
+            // Filter out invalid images (empty strings, null, undefined)
+            if (productData.images && Array.isArray(productData.images)) {
+                productData.images = productData.images.filter(img => img && img.trim() !== "" && img.startsWith('http'));
+            } else {
+                productData.images = [];
+            }
+            products.push({ id: doc.id, ...productData });
+        });
+        console.log(`Loaded ${products.length} products for vendor ${vendorId}`); // Debug log
+        products.forEach((p, i) => {
+            console.log(`Product ${i+1}: ${p.title} - Images: ${p.images ? p.images.length : 0}`);
+        });
+        return products;
+    } catch (error) {
+        console.error("Error loading products:", error);
+        return [];
     }
 }
 
@@ -263,13 +303,18 @@ async function loadSavedVendors() {
 async function loadBookings() {
     try {
         const bookingsRef = collection(db, "bookings");
-        const q = query(bookingsRef, where("customerId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+        const q = query(bookingsRef, 
+            where("customerId", "==", currentUser.uid), 
+            orderBy("createdAt", "desc")
+        );
         const snapshot = await getDocs(q);
         bookingsList = [];
         snapshot.forEach(doc => {
             bookingsList.push({ id: doc.id, ...doc.data() });
         });
         renderBookings();
+        updateDashboardStats();
+        renderRecentBookings();
     } catch (error) {
         console.error("Error loading bookings:", error);
     }
@@ -278,7 +323,10 @@ async function loadBookings() {
 async function loadMessages() {
     try {
         const messagesRef = collection(db, "messages");
-        const q = query(messagesRef, where("customerId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+        const q = query(messagesRef, 
+            where("customerId", "==", currentUser.uid), 
+            orderBy("createdAt", "desc")
+        );
         const snapshot = await getDocs(q);
         messagesList = [];
         snapshot.forEach(doc => {
@@ -293,6 +341,40 @@ async function loadMessages() {
 /* =========================================================
    RENDER FUNCTIONS
 ========================================================= */
+function renderVendorCard(vendor) {
+    const isSaved = savedVendorsList.some(s => s.vendorId === vendor.id);
+    const vendorName = vendor.companyName || vendor.fullName || vendor.serviceName || "Vendor";
+    const district = vendor.district || "Location not specified";
+    const description = vendor.description || "Professional wedding service provider";
+    
+    const profilePicture = vendor.profilePicture || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23333'/%3E%3Ctext x='50%25' y='50%25' font-size='16' text-anchor='middle' fill='%23aaa' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+    
+    const vendorServices = servicesList.filter(s => s.vendorId === vendor.id);
+    const serviceTags = vendorServices.slice(0, 3).map(s => s.title).filter(Boolean);
+    
+    return `
+        <div class="vendor-card" data-id="${vendor.id}" data-type="${vendor.type}">
+            <div class="vendor-card-image">
+                <img src="${profilePicture}" 
+                     alt="${escapeHtml(vendorName)}" 
+                     onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\' viewBox=\'0 0 400 300\'%3E%3Crect width=\'400\' height=\'300\' fill=\'%23333\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' font-size=\'16\' text-anchor=\'middle\' fill=\'%23aaa\' dy=\'.3em\'%3EImage%20Load%20Failed%3C/text%3E%3C/svg%3E'; this.onerror=null;">
+                <button class="favorite-btn ${isSaved ? 'active' : ''}" data-id="${vendor.id}" data-type="${vendor.type}">
+                    <i class="fas fa-heart"></i>
+                </button>
+            </div>
+            <div class="vendor-card-content">
+                <h3 class="vendor-name">${escapeHtml(vendorName)}</h3>
+                <div class="vendor-location">
+                    <i class="fas fa-map-marker-alt"></i> ${escapeHtml(district)}
+                </div>
+                <p class="vendor-description">${escapeHtml(description.substring(0, 80))}${description.length > 80 ? '...' : ''}</p>
+                ${serviceTags.length > 0 ? `<div class="vendor-services">${serviceTags.map(s => `<span class="service-tag">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
+                <div class="vendor-category-badge">${escapeHtml(vendor.category || "General")}</div>
+            </div>
+        </div>
+    `;
+}
+
 function renderVendors() {
     const vendorGrid = document.getElementById("vendorGrid");
     const searchTerm = document.getElementById("searchVendor")?.value.toLowerCase() || "";
@@ -301,7 +383,6 @@ function renderVendors() {
     
     let filtered = [...vendorsList];
     
-    // Apply filters
     if (searchTerm) {
         filtered = filtered.filter(v => 
             (v.companyName?.toLowerCase().includes(searchTerm)) ||
@@ -325,23 +406,10 @@ function renderVendors() {
     
     vendorGrid.innerHTML = filtered.map(vendor => renderVendorCard(vendor)).join("");
     
-    // Attach event listeners to buttons
     document.querySelectorAll('.favorite-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSaveVendor(btn.dataset.id, btn.dataset.type);
-        });
-    });
-    document.querySelectorAll('.btn-contact').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openContactModal(btn.dataset.id, btn.dataset.name);
-        });
-    });
-    document.querySelectorAll('.btn-book').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openBookingModal(btn.dataset.id, btn.dataset.name);
         });
     });
     document.querySelectorAll('.vendor-card').forEach(card => {
@@ -349,42 +417,6 @@ function renderVendors() {
             openVendorDetails(card.dataset.id, card.dataset.type);
         });
     });
-}
-
-function renderVendorCard(vendor) {
-    const isSaved = savedVendorsList.some(s => s.vendorId === vendor.id);
-    const vendorName = vendor.companyName || vendor.fullName || vendor.serviceName || "Vendor";
-    const category = vendor.category || "General";
-    const district = vendor.district || "Location not specified";
-    const description = vendor.description || "Professional wedding service provider";
-    const priceNote = vendor.priceNote || "Price on request";
-    
-    // Get services for this vendor
-    const vendorServices = servicesList.filter(s => s.vendorId === vendor.id);
-    const serviceTags = vendorServices.slice(0, 3).map(s => s.title).filter(Boolean);
-    
-    return `
-        <div class="vendor-card glass" data-id="${vendor.id}" data-type="${vendor.type}">
-            <div class="vendor-card-header">
-                <h3 class="vendor-name">${escapeHtml(vendorName)}</h3>
-                <button class="favorite-btn ${isSaved ? 'active' : ''}" data-id="${vendor.id}" data-type="${vendor.type}">
-                    <i class="fas ${isSaved ? 'fa-heart' : 'fa-heart'}"></i>
-                </button>
-            </div>
-            <span class="vendor-category">${escapeHtml(category)}</span>
-            <div class="vendor-details">
-                <span><i class="fas fa-map-marker-alt"></i> ${escapeHtml(district)}</span>
-                <span><i class="fas ${vendor.type === 'company' ? 'fa-building' : 'fa-user'}"></i> ${vendor.type === 'company' ? 'Company' : 'Individual'}</span>
-            </div>
-            <p class="vendor-description">${escapeHtml(description.substring(0, 100))}${description.length > 100 ? '...' : ''}</p>
-            ${serviceTags.length > 0 ? `<div class="vendor-services">${serviceTags.map(s => `<span class="service-tag">${escapeHtml(s)}</span>`).join('')}</div>` : ''}
-            <div class="vendor-price">${escapeHtml(priceNote)}</div>
-            <div class="vendor-actions">
-                <button class="btn-contact" data-id="${vendor.id}" data-name="${escapeHtml(vendorName)}"><i class="fas fa-envelope"></i> Contact</button>
-                <button class="btn-book" data-id="${vendor.id}" data-name="${escapeHtml(vendorName)}"><i class="fas fa-calendar-plus"></i> Book</button>
-            </div>
-        </div>
-    `;
 }
 
 function renderSavedVendors() {
@@ -400,23 +432,10 @@ function renderSavedVendors() {
     
     savedGrid.innerHTML = savedVendorsData.map(vendor => renderVendorCard(vendor)).join("");
     
-    // Re-attach event listeners
     document.querySelectorAll('#savedVendorsGrid .favorite-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSaveVendor(btn.dataset.id, btn.dataset.type);
-        });
-    });
-    document.querySelectorAll('#savedVendorsGrid .btn-contact').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openContactModal(btn.dataset.id, btn.dataset.name);
-        });
-    });
-    document.querySelectorAll('#savedVendorsGrid .btn-book').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openBookingModal(btn.dataset.id, btn.dataset.name);
         });
     });
     document.querySelectorAll('#savedVendorsGrid .vendor-card').forEach(card => {
@@ -424,30 +443,6 @@ function renderSavedVendors() {
             openVendorDetails(card.dataset.id, card.dataset.type);
         });
     });
-}
-
-function renderRecommendedVendors() {
-    const container = document.getElementById("recommendedVendors");
-    if (!budgetPlan || !budgetPlan.recommendations) {
-        container.innerHTML = '<p class="empty-state">Set your budget to see recommendations</p>';
-        return;
-    }
-    
-    const recommendations = budgetPlan.recommendations.slice(0, 3);
-    if (recommendations.length === 0) {
-        container.innerHTML = '<p class="empty-state">No matching vendors found for your budget</p>';
-        return;
-    }
-    
-    container.innerHTML = recommendations.map(vendor => `
-        <div class="recent-item" onclick="openVendorDetails('${vendor.id}', '${vendor.type}')">
-            <div class="info">
-                <p class="name">${escapeHtml(vendor.companyName || vendor.fullName || vendor.serviceName)}</p>
-                <p class="detail">${escapeHtml(vendor.category)} • ${escapeHtml(vendor.district)}</p>
-            </div>
-            <button class="btn-icon" onclick="event.stopPropagation(); openBookingModal('${vendor.id}', '${escapeHtml(vendor.companyName || vendor.fullName)}')" style="background: rgba(255,215,0,0.2); padding: 5px 10px; border-radius: 20px;">Book</button>
-        </div>
-    `).join("");
 }
 
 function renderBookings() {
@@ -460,7 +455,7 @@ function renderBookings() {
     document.getElementById("bookingBadge").textContent = pending.length;
     
     if (pending.length === 0) {
-        pendingBody.innerHTML = '发展<td colspan="6" class="empty-state">No pending bookings</td></tr>';
+        pendingBody.innerHTML = '<td colspan="6" class="empty-state">No pending bookings</td>';
     } else {
         pendingBody.innerHTML = pending.map(booking => `
             <tr>
@@ -477,7 +472,7 @@ function renderBookings() {
     }
     
     if (history.length === 0) {
-        historyBody.innerHTML = '发展<td colspan="5" class="empty-state">No booking history</td></tr>';
+        historyBody.innerHTML = '<td colspan="5" class="empty-state">No booking history</td>';
     } else {
         historyBody.innerHTML = history.map(booking => `
             <tr>
@@ -530,6 +525,30 @@ function renderRecentBookings() {
                 <p class="detail">${escapeHtml(booking.serviceTitle || "Service")} • ${formatDate(booking.eventDate)}</p>
             </div>
             <span class="status status-${booking.status}">${booking.status}</span>
+        </div>
+    `).join("");
+}
+
+function renderRecommendedVendors() {
+    const container = document.getElementById("recommendedVendors");
+    if (!budgetPlan || !budgetPlan.recommendations) {
+        container.innerHTML = '<p class="empty-state">Set your budget to see recommendations</p>';
+        return;
+    }
+    
+    const recommendations = budgetPlan.recommendations.slice(0, 3);
+    if (recommendations.length === 0) {
+        container.innerHTML = '<p class="empty-state">No matching vendors found for your budget</p>';
+        return;
+    }
+    
+    container.innerHTML = recommendations.map(vendor => `
+        <div class="recent-item" onclick="openVendorDetails('${vendor.id}', '${vendor.type}')">
+            <div class="info">
+                <p class="name">${escapeHtml(vendor.companyName || vendor.fullName || vendor.serviceName)}</p>
+                <p class="detail">${escapeHtml(vendor.category)} • ${escapeHtml(vendor.district)}</p>
+            </div>
+            <button class="btn-icon" onclick="event.stopPropagation(); openBookingFormDirect('${vendor.id}', '${escapeHtml(vendor.companyName || vendor.fullName)}')" style="background: rgba(255,215,0,0.2); padding: 5px 10px; border-radius: 20px;">Book</button>
         </div>
     `).join("");
 }
@@ -594,7 +613,6 @@ function calculateBudgetPlan() {
         return;
     }
     
-    // Calculate category budgets
     const categoryBudgets = {};
     let totalAllocated = 0;
     
@@ -604,7 +622,6 @@ function calculateBudgetPlan() {
         totalAllocated += amount;
     }
     
-    // Find recommended vendors for each category
     const recommendations = [];
     for (const [category, budgetAmount] of Object.entries(categoryBudgets)) {
         const matchingVendors = vendorsList.filter(v => 
@@ -630,7 +647,6 @@ function calculateBudgetPlan() {
         recommendations: recommendations.slice(0, 5)
     };
     
-    // Save budget to customer profile
     updateDoc(doc(db, "users", currentUser.uid), {
         budget: totalBudget,
         district: district,
@@ -675,29 +691,515 @@ function displayBudgetResults() {
     } else {
         recommendationsDiv.innerHTML = budgetPlan.recommendations.map(vendor => renderVendorCard(vendor)).join("");
         
-        // Attach event listeners to recommended vendors
         recommendationsDiv.querySelectorAll('.favorite-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleSaveVendor(btn.dataset.id, btn.dataset.type);
             });
         });
-        recommendationsDiv.querySelectorAll('.btn-contact').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openContactModal(btn.dataset.id, btn.dataset.name);
-            });
-        });
-        recommendationsDiv.querySelectorAll('.btn-book').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openBookingModal(btn.dataset.id, btn.dataset.name);
+        recommendationsDiv.querySelectorAll('.vendor-card').forEach(card => {
+            card.addEventListener('click', () => {
+                openVendorDetails(card.dataset.id, card.dataset.type);
             });
         });
     }
     
     resultsDiv.style.display = "block";
     resultsDiv.scrollIntoView({ behavior: "smooth" });
+}
+
+/* =========================================================
+   VENDOR DETAILS & MODAL FUNCTIONS
+========================================================= */
+function openVendorDetails(vendorId, vendorType) {
+    const vendor = vendorsList.find(v => v.id === vendorId && v.type === vendorType);
+    if (!vendor) return;
+    
+    currentVendorForModal = vendor;
+    
+    const vendorServices = servicesList.filter(s => s.vendorId === vendorId);
+    
+    // Show loading state
+    const modalContent = document.getElementById("modalContent");
+    modalContent.innerHTML = `
+        <div class="vendor-detail-container" style="text-align: center; padding: 50px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: #FFD700;"></i>
+            <p style="margin-top: 20px;">Loading vendor details...</p>
+        </div>
+    `;
+    document.getElementById("vendorModal").style.display = "block";
+    
+    // Load products for this vendor
+    loadProductsForVendor(vendorId).then(products => {
+        // Create array of unique images for gallery - NO DUPLICATES
+        const uniqueImages = new Set();
+        
+        // Add product images to gallery if available (only first image per product)
+        if (products.length > 0) {
+            products.forEach(product => {
+                if (product.images && product.images.length > 0) {
+                    // Only add the first image of each product to avoid duplicates
+                    const firstImage = product.images[0];
+                    if (firstImage && !uniqueImages.has(firstImage)) {
+                        uniqueImages.add(firstImage);
+                    }
+                }
+            });
+        }
+        
+        // Convert Set to Array
+        currentServiceImages = Array.from(uniqueImages);
+        
+        // If no images from products, use placeholder
+        if (currentServiceImages.length === 0) {
+            currentServiceImages = ["https://via.placeholder.com/600x400?text=No+Images+Available"];
+        }
+        
+        console.log(`Gallery images: ${currentServiceImages.length} unique images`); // Debug log
+        
+        let currentImageIndex = 0;
+        
+        // Build the modal HTML with products
+        modalContent.innerHTML = `
+            <div class="vendor-detail-container">
+                <button class="back-button" onclick="closeModal()">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                
+                <div class="vendor-gallery">
+                    ${currentServiceImages.length > 1 ? `
+                        <button class="gallery-nav prev" onclick="changeImage(-1)"><i class="fas fa-chevron-left"></i></button>
+                        <button class="gallery-nav next" onclick="changeImage(1)"><i class="fas fa-chevron-right"></i></button>
+                    ` : ''}
+                    <img id="galleryImage" src="${escapeHtml(currentServiceImages[0])}" alt="Vendor Gallery" 
+                         referrerpolicy="no-referrer"
+                         onerror="this.onerror=null; this.src='https://via.placeholder.com/600x400?text=No+Image';">
+                    ${currentServiceImages.length > 1 ? `<div class="image-counter" id="imageCounter">1 / ${currentServiceImages.length}</div>` : ''}
+                </div>
+                
+                <div class="vendor-info-detail">
+                    <h2>${escapeHtml(vendor.companyName || vendor.fullName || vendor.serviceName)}</h2>
+                    <div class="vendor-meta">
+                        <span class="category-badge">${escapeHtml(vendor.category || "General")}</span>
+                        <span class="location-badge"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(vendor.district || "Location not specified")}</span>
+                        <span class="type-badge"><i class="fas ${vendor.type === 'company' ? 'fa-building' : 'fa-user'}"></i> ${vendor.type === 'company' ? 'Company Vendor' : 'Individual Vendor'}</span>
+                    </div>
+                    
+                    <div class="vendor-contact-info">
+                        <h3>Contact Information</h3>
+                        <p><i class="fas fa-envelope"></i> ${escapeHtml(vendor.email || "Email not available")}</p>
+                        <p><i class="fas fa-phone"></i> ${escapeHtml(vendor.phone || "Phone not available")}</p>
+                        <p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(vendor.address || "Address not specified")}</p>
+                        ${vendor.website ? `<p><i class="fas fa-globe"></i> <a href="${escapeHtml(vendor.website)}" target="_blank" style="color: #FFD700;">${escapeHtml(vendor.website)}</a></p>` : ''}
+                    </div>
+                    
+                    <div class="vendor-description-full">
+                        <h3>About</h3>
+                        <p>${escapeHtml(vendor.description || "No description available")}</p>
+                    </div>
+                    
+                    <!-- PRODUCTS SECTION -->
+                    <div class="vendor-products-section">
+                        <h3>Products & Services</h3>
+                        ${products.length > 0 ? `
+                            <div class="products-grid">
+                                ${products.map(product => `
+                                    <div class="product-card" data-product='${JSON.stringify(product).replace(/'/g, "&#39;")}'>
+                                        <div class="product-image">
+                                            <img src="${product.images && product.images[0] ? product.images[0] : 'https://via.placeholder.com/300x200?text=No+Image'}" 
+                                                 alt="${escapeHtml(product.title)}"
+                                                 referrerpolicy="no-referrer"
+                                                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200?text=Image+Not+Available';">
+                                        </div>
+                                        <div class="product-info">
+                                            <h4>${escapeHtml(product.title)}</h4>
+                                            <p class="product-description">${escapeHtml(product.description.substring(0, 80))}${product.description.length > 80 ? '...' : ''}</p>
+                                            <p class="product-price">${escapeHtml(product.price)}</p>
+                                            <button class="btn-book-product" data-product='${JSON.stringify(product).replace(/'/g, "&#39;")}'>
+                                                <i class="fas fa-calendar-plus"></i> Book Now
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p class="empty-state">No products or services listed yet. Check back soon!</p>'}
+                    </div>
+                    
+                    <div class="vendor-action-buttons">
+                        <button class="btn-contact-detail" onclick="openContactForm()"><i class="fas fa-envelope"></i> Contact Vendor</button>
+                        <button class="btn-book-detail" onclick="openBookingForm()"><i class="fas fa-calendar-plus"></i> Request Custom Booking</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Attach event listeners to product book buttons
+        document.querySelectorAll('.btn-book-product').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const productData = JSON.parse(btn.dataset.product);
+                openProductBookingForm(productData);
+            });
+        });
+        
+        window.changeImage = function(direction) {
+            if (currentServiceImages.length <= 1) return;
+            currentImageIndex = (currentImageIndex + direction + currentServiceImages.length) % currentServiceImages.length;
+            const galleryImage = document.getElementById("galleryImage");
+            const imageCounter = document.getElementById("imageCounter");
+            if (galleryImage) {
+                galleryImage.src = currentServiceImages[currentImageIndex];
+                if (imageCounter) imageCounter.textContent = `${currentImageIndex + 1} / ${currentServiceImages.length}`;
+            }
+        };
+    }).catch(error => {
+        console.error("Error loading products:", error);
+        modalContent.innerHTML = `
+            <div class="vendor-detail-container">
+                <button class="back-button" onclick="closeModal()">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ff6b6b;"></i>
+                    <p style="margin-top: 20px;">Error loading vendor details. Please try again.</p>
+                </div>
+            </div>
+        `;
+    });
+}
+
+function openProductBookingForm(product) {
+    if (!currentVendorForModal) return;
+    
+    const modalContent = document.getElementById("modalContent");
+    
+    modalContent.innerHTML = `
+        <div class="form-modal-container">
+            <button class="back-button" onclick="openVendorDetails('${currentVendorForModal.id}', '${currentVendorForModal.type}')">
+                <i class="fas fa-arrow-left"></i> Back to Vendor
+            </button>
+            
+            <h2>Book: ${escapeHtml(product.title)}</h2>
+            <p class="booking-summary">from ${escapeHtml(currentVendorForModal.companyName || currentVendorForModal.fullName)}</p>
+            
+            <div class="product-details-summary">
+                <p><strong>Price:</strong> ${escapeHtml(product.price)}</p>
+                <p><strong>Description:</strong> ${escapeHtml(product.description.substring(0, 150))}${product.description.length > 150 ? '...' : ''}</p>
+            </div>
+            
+            <form id="productBookingForm" class="booking-form">
+                <div class="form-group">
+                    <label for="bookingEventDate">Event Date *</label>
+                    <input type="date" id="bookingEventDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingBudget">Your Budget (LKR)</label>
+                    <input type="number" id="bookingBudget" placeholder="Enter your budget" value="${product.priceNumber || ''}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingNotes">Special Requests / Notes</label>
+                    <textarea id="bookingNotes" rows="4" placeholder="Any specific requirements or questions about this service..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn-primary">Send Booking Request</button>
+            </form>
+        </div>
+    `;
+    
+    document.getElementById("productBookingForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const eventDate = document.getElementById("bookingEventDate").value;
+        const budget = document.getElementById("bookingBudget").value;
+        const notes = document.getElementById("bookingNotes").value;
+        
+        if (!eventDate) {
+            showToast("Please select an event date", true);
+            return;
+        }
+        
+        const bookingData = {
+            vendorId: currentVendorForModal.id,
+            vendorName: currentVendorForModal.companyName || currentVendorForModal.fullName,
+            serviceTitle: product.title,
+            eventDate: eventDate,
+            budget: Number(budget) || product.priceNumber || 0,
+            message: `Product: ${product.title}\n\nPrice: ${product.price}\n\n${notes ? `Notes: ${notes}` : ''}`,
+            productId: product.id,
+            productDetails: product
+        };
+        
+        await sendBookingRequest(bookingData);
+        closeModal();
+    });
+}
+
+function openContactForm() {
+    if (!currentVendorForModal) return;
+    
+    const modalContent = document.getElementById("modalContent");
+    
+    modalContent.innerHTML = `
+        <div class="form-modal-container">
+            <button class="back-button" onclick="openVendorDetails('${currentVendorForModal.id}', '${currentVendorForModal.type}')">
+                <i class="fas fa-arrow-left"></i> Back to Vendor
+            </button>
+            
+            <h2>Contact ${escapeHtml(currentVendorForModal.companyName || currentVendorForModal.fullName)}</h2>
+            
+            <div class="vendor-contact-summary">
+                <p><i class="fas fa-envelope"></i> ${escapeHtml(currentVendorForModal.email || "Email not available")}</p>
+                <p><i class="fas fa-phone"></i> ${escapeHtml(currentVendorForModal.phone || "Phone not available")}</p>
+                <p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(currentVendorForModal.district || "Location not specified")}</p>
+            </div>
+            
+            <form id="contactForm" class="contact-form">
+                <div class="form-group">
+                    <label for="contactSubject">Subject *</label>
+                    <input type="text" id="contactSubject" placeholder="e.g., Inquiry about wedding services" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactMessage">Message *</label>
+                    <textarea id="contactMessage" rows="5" placeholder="Write your message here..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="contactPhone">Your Phone Number (Optional)</label>
+                    <input type="tel" id="contactPhone" placeholder="+94 XX XXX XXXX">
+                </div>
+                
+                <button type="submit" class="btn-primary">Send Message</button>
+            </form>
+        </div>
+    `;
+    
+    document.getElementById("contactForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const subject = document.getElementById("contactSubject").value.trim();
+        const message = document.getElementById("contactMessage").value.trim();
+        const phone = document.getElementById("contactPhone").value.trim();
+        
+        if (!subject || !message) {
+            showToast("Please fill all required fields", true);
+            return;
+        }
+        
+        const messageData = {
+            vendorId: currentVendorForModal.id,
+            vendorName: currentVendorForModal.companyName || currentVendorForModal.fullName,
+            subject: subject,
+            message: message + (phone ? `\n\nContact Phone: ${phone}` : ""),
+            customerPhone: phone
+        };
+        
+        await sendMessage(messageData);
+        closeModal();
+    });
+}
+
+function openBookingForm() {
+    if (!currentVendorForModal) return;
+    
+    const modalContent = document.getElementById("modalContent");
+    
+    modalContent.innerHTML = `
+        <div class="form-modal-container">
+            <button class="back-button" onclick="openVendorDetails('${currentVendorForModal.id}', '${currentVendorForModal.type}')">
+                <i class="fas fa-arrow-left"></i> Back to Vendor
+            </button>
+            
+            <h2>Request Booking with ${escapeHtml(currentVendorForModal.companyName || currentVendorForModal.fullName)}</h2>
+            
+            <form id="bookingForm" class="booking-form">
+                <div class="form-group">
+                    <label for="bookingService">Service Required *</label>
+                    <input type="text" id="bookingService" placeholder="e.g., Wedding Photography Package" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingDate">Event Date *</label>
+                    <input type="date" id="bookingDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingBudget">Estimated Budget (LKR) *</label>
+                    <input type="number" id="bookingBudget" placeholder="Enter your budget" min="0" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingGuestCount">Expected Guest Count</label>
+                    <input type="number" id="bookingGuestCount" placeholder="Number of guests">
+                </div>
+                
+                <div class="form-group">
+                    <label for="bookingMessage">Additional Notes</label>
+                    <textarea id="bookingMessage" rows="3" placeholder="Any special requests or details..."></textarea>
+                </div>
+                
+                <button type="submit" class="btn-primary" id="proceedToPaymentBtn">Proceed to Payment</button>
+            </form>
+        </div>
+    `;
+    
+    document.getElementById("bookingForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const serviceTitle = document.getElementById("bookingService").value.trim();
+        const eventDate = document.getElementById("bookingDate").value;
+        const budget = Number(document.getElementById("bookingBudget").value);
+        const guestCount = document.getElementById("bookingGuestCount").value;
+        const message = document.getElementById("bookingMessage").value.trim();
+        
+        if (!serviceTitle || !eventDate || !budget) {
+            showToast("Please fill all required fields", true);
+            return;
+        }
+        
+        window.tempBookingData = {
+            serviceTitle,
+            eventDate,
+            budget,
+            guestCount,
+            message
+        };
+        
+        openPaymentForm();
+    });
+}
+
+function openBookingFormDirect(vendorId, vendorName) {
+    const vendor = vendorsList.find(v => v.id === vendorId);
+    if (vendor) {
+        currentVendorForModal = vendor;
+        openBookingForm();
+    }
+}
+
+function openPaymentForm() {
+    if (!currentVendorForModal || !window.tempBookingData) return;
+    
+    const modalContent = document.getElementById("modalContent");
+    
+    modalContent.innerHTML = `
+        <div class="form-modal-container">
+            <button class="back-button" onclick="openBookingForm()">
+                <i class="fas fa-arrow-left"></i> Back to Booking
+            </button>
+            
+            <h2>Payment Details</h2>
+            <p class="payment-summary">Booking with ${escapeHtml(currentVendorForModal.companyName || currentVendorForModal.fullName)}</p>
+            <p class="payment-amount">Amount: ${formatCurrency(window.tempBookingData.budget)}</p>
+            
+            <form id="paymentForm" class="payment-form">
+                <div class="form-group">
+                    <label for="cardNumber">Card Number *</label>
+                    <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expiryDate">Expiry Date *</label>
+                        <input type="text" id="expiryDate" placeholder="MM/YY" maxlength="5" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cvv">CVV *</label>
+                        <input type="password" id="cvv" placeholder="123" maxlength="3" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cardName">Cardholder Name *</label>
+                    <input type="text" id="cardName" placeholder="Name on card" required>
+                </div>
+                
+                <button type="submit" class="btn-primary pay-now-btn">Pay Now</button>
+            </form>
+        </div>
+    `;
+    
+    const cardNumberInput = document.getElementById("cardNumber");
+    if (cardNumberInput) {
+        cardNumberInput.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\s/g, '');
+            if (value.length > 16) value = value.slice(0, 16);
+            e.target.value = value.replace(/(\d{4})/g, '$1 ').trim();
+        });
+    }
+    
+    const expiryInput = document.getElementById("expiryDate");
+    if (expiryInput) {
+        expiryInput.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\//g, '');
+            if (value.length >= 2) {
+                value = value.slice(0, 2) + '/' + value.slice(2, 4);
+            }
+            e.target.value = value;
+        });
+    }
+    
+    document.getElementById("paymentForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const cardNumber = document.getElementById("cardNumber").value.replace(/\s/g, '');
+        const expiryDate = document.getElementById("expiryDate").value;
+        const cvv = document.getElementById("cvv").value;
+        const cardName = document.getElementById("cardName").value.trim();
+        
+        if (!cardNumber || !expiryDate || !cvv || !cardName) {
+            showToast("Please fill all payment details", true);
+            return;
+        }
+        
+        if (cardNumber.length !== 16) {
+            showToast("Please enter a valid 16-digit card number", true);
+            return;
+        }
+        
+        if (cvv.length !== 3) {
+            showToast("Please enter a valid 3-digit CVV", true);
+            return;
+        }
+        
+        const payBtn = document.querySelector(".pay-now-btn");
+        const originalText = payBtn.innerHTML;
+        payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        payBtn.disabled = true;
+        
+        setTimeout(async () => {
+            const bookingData = {
+                vendorId: currentVendorForModal.id,
+                vendorName: currentVendorForModal.companyName || currentVendorForModal.fullName,
+                serviceTitle: window.tempBookingData.serviceTitle,
+                eventDate: window.tempBookingData.eventDate,
+                budget: window.tempBookingData.budget,
+                message: window.tempBookingData.message + `\n\nPayment Status: Paid via card ending in ${cardNumber.slice(-4)}`
+            };
+            
+            await sendBookingRequest(bookingData);
+            
+            modalContent.innerHTML = `
+                <div class="success-container">
+                    <i class="fas fa-check-circle" style="font-size: 64px; color: #51cf66;"></i>
+                    <h2>Payment Successful!</h2>
+                    <p>Your booking request has been sent to ${escapeHtml(bookingData.vendorName)}.</p>
+                    <p>We'll notify you once the vendor responds.</p>
+                    <button class="btn-primary" onclick="closeModal()">Close</button>
+                </div>
+            `;
+            
+            delete window.tempBookingData;
+        }, 2000);
+    });
+}
+
+function closeModal() {
+    document.getElementById("vendorModal").style.display = "none";
+    currentVendorForModal = null;
+    delete window.tempBookingData;
 }
 
 /* =========================================================
@@ -734,11 +1236,11 @@ async function sendBookingRequest(bookingData) {
             customerName: currentCustomerData.fullName || "Customer",
             vendorId: bookingData.vendorId,
             vendorName: bookingData.vendorName,
-            serviceId: bookingData.serviceId || null,
             serviceTitle: bookingData.serviceTitle,
             eventDate: bookingData.eventDate,
             budget: Number(bookingData.budget),
             message: bookingData.message || "",
+            paymentStatus: "paid",
             status: "pending",
             createdAt: new Date().toISOString()
         });
@@ -760,12 +1262,14 @@ async function sendMessage(messageData) {
             vendorName: messageData.vendorName,
             subject: messageData.subject,
             message: messageData.message,
+            customerPhone: messageData.customerPhone || "",
             senderType: "customer",
             isRead: false,
             createdAt: new Date().toISOString()
         });
         showToast("Message sent successfully!");
         await loadMessages();
+        closeModal();
     } catch (error) {
         console.error("Error sending message:", error);
         showToast("Error sending message", true);
@@ -815,108 +1319,6 @@ async function updateProfile(e) {
         showToast("Error updating profile", true);
     }
 }
-
-/* =========================================================
-   MODAL FUNCTIONS
-========================================================= */
-function setupModal() {
-    const modal = document.getElementById("vendorModal");
-    const closeBtn = document.querySelector(".close-modal");
-    
-    closeBtn.onclick = () => modal.style.display = "none";
-    window.onclick = (event) => {
-        if (event.target === modal) modal.style.display = "none";
-    };
-}
-
-function openVendorDetails(vendorId, vendorType) {
-    const vendor = vendorsList.find(v => v.id === vendorId && v.type === vendorType);
-    if (!vendor) return;
-    
-    const vendorServices = servicesList.filter(s => s.vendorId === vendorId);
-    const modalContent = document.getElementById("modalContent");
-    
-    modalContent.innerHTML = `
-        <div style="text-align: center;">
-            <h2>${escapeHtml(vendor.companyName || vendor.fullName || vendor.serviceName)}</h2>
-            <span class="vendor-category">${escapeHtml(vendor.category || "General")}</span>
-            <div style="margin: 15px 0;">
-                <p><i class="fas fa-map-marker-alt"></i> ${escapeHtml(vendor.district || "Location not specified")}</p>
-                <p><i class="fas ${vendor.type === 'company' ? 'fa-building' : 'fa-user'}"></i> ${vendor.type === 'company' ? 'Company Vendor' : 'Individual Vendor'}</p>
-                <p><i class="fas fa-envelope"></i> ${escapeHtml(vendor.email || "Email not available")}</p>
-                <p><i class="fas fa-phone"></i> ${escapeHtml(vendor.phone || "Phone not available")}</p>
-            </div>
-            <p>${escapeHtml(vendor.description || "No description available")}</p>
-            
-            ${vendorServices.length > 0 ? `
-                <h3 style="margin-top: 20px;">Services Offered</h3>
-                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-                    ${vendorServices.map(service => `
-                        <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 10px;">
-                            <h4>${escapeHtml(service.title)}</h4>
-                            <p>${escapeHtml(service.description || "No description")}</p>
-                            <p><strong>Price:</strong> ${formatCurrency(service.price)}</p>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : '<p>No services listed yet.</p>'}
-            
-            <div style="display: flex; gap: 15px; margin-top: 25px; justify-content: center;">
-                <button class="btn-contact" onclick="closeModalAndOpenContact('${vendor.id}', '${escapeHtml(vendor.companyName || vendor.fullName)}')">Contact Vendor</button>
-                <button class="btn-book" onclick="closeModalAndOpenBooking('${vendor.id}', '${escapeHtml(vendor.companyName || vendor.fullName)}')">Request Booking</button>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById("vendorModal").style.display = "block";
-}
-
-function openContactModal(vendorId, vendorName) {
-    const subject = prompt("Subject:", "Inquiry about wedding services");
-    if (!subject) return;
-    
-    const message = prompt("Your message:");
-    if (!message) return;
-    
-    sendMessage({ vendorId, vendorName, subject, message });
-}
-
-function openBookingModal(vendorId, vendorName) {
-    const eventDate = prompt("Event Date (YYYY-MM-DD):");
-    if (!eventDate) return;
-    
-    const serviceTitle = prompt("Service you're interested in:", "Wedding Service");
-    if (!serviceTitle) return;
-    
-    const budget = prompt("Your estimated budget (LKR):");
-    if (!budget) return;
-    
-    const message = prompt("Any special requests or notes? (Optional)");
-    
-    sendBookingRequest({ vendorId, vendorName, serviceTitle, eventDate, budget, message });
-}
-
-window.closeModalAndOpenContact = (vendorId, vendorName) => {
-    document.getElementById("vendorModal").style.display = "none";
-    setTimeout(() => openContactModal(vendorId, vendorName), 100);
-};
-
-window.closeModalAndOpenBooking = (vendorId, vendorName) => {
-    document.getElementById("vendorModal").style.display = "none";
-    setTimeout(() => openBookingModal(vendorId, vendorName), 100);
-};
-
-window.viewMessage = (messageId) => {
-    const message = messagesList.find(m => m.id === messageId);
-    if (message) {
-        alert(`From: ${message.vendorName}\nSubject: ${message.subject}\n\nMessage:\n${message.message}`);
-        
-        if (!message.isRead) {
-            updateDoc(doc(db, "messages", messageId), { isRead: true, readAt: new Date().toISOString() })
-                .catch(console.error);
-        }
-    }
-};
 
 /* =========================================================
    NAVIGATION & SETUP
@@ -989,9 +1391,6 @@ function setupFilters() {
     searchInput?.addEventListener("input", applyFilters);
     categoryFilter?.addEventListener("change", applyFilters);
     districtFilter?.addEventListener("change", applyFilters);
-    
-    // Initial render
-    renderVendors();
 }
 
 function setupCategories() {
@@ -1002,7 +1401,7 @@ function setupCategories() {
     const categoryTitle = document.getElementById("categoryTitle");
     const categoryVendorsGrid = document.getElementById("categoryVendorsGrid");
     
-    const categoryNames = {
+    const categoryDisplayNames = {
         venue: "Wedding Venues",
         photography: "Photography",
         catering: "Catering",
@@ -1018,56 +1417,41 @@ function setupCategories() {
             const category = card.dataset.category;
             const filtered = vendorsList.filter(v => v.category === category);
             
-            // Update title
-            categoryTitle.textContent = categoryNames[category] || category;
+            categoryTitle.textContent = categoryDisplayNames[category] || category;
             
-            // Render vendors
             categoryVendorsGrid.innerHTML = filtered.map(vendor => renderVendorCard(vendor)).join("");
             
-            // Attach event listeners to buttons
-            document.querySelectorAll('.favorite-btn').forEach(btn => {
+            categoryVendorsGrid.querySelectorAll('.favorite-btn').forEach(btn => {
                 btn.addEventListener("click", (e) => {
                     e.stopPropagation();
-                    const vendorId = btn.dataset.vendorId;
-                    const vendorType = btn.dataset.vendorType;
-                    toggleSaveVendor(vendorId, vendorType);
+                    toggleSaveVendor(btn.dataset.id, btn.dataset.type);
                 });
             });
-            document.querySelectorAll('.btn-contact').forEach(btn => {
-                btn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    const vendorId = btn.dataset.vendorId;
-                    const vendorName = btn.dataset.vendorName;
-                    openContactModal(vendorId, vendorName);
-                });
-            });
-            document.querySelectorAll('.btn-book').forEach(btn => {
-                btn.addEventListener("click", (e) => {
-                    e.stopPropagation();
-                    const vendorId = btn.dataset.vendorId;
-                    const vendorName = btn.dataset.vendorName;
-                    openBookingModal(vendorId, vendorName);
-                });
-            });
-            document.querySelectorAll('.vendor-card').forEach(card => {
+            categoryVendorsGrid.querySelectorAll('.vendor-card').forEach(card => {
                 card.addEventListener("click", () => {
-                    const vendorId = card.dataset.vendorId;
-                    const vendorType = card.dataset.vendorType;
-                    openVendorDetails(vendorId, vendorType);
+                    openVendorDetails(card.dataset.id, card.dataset.type);
                 });
             });
             
-            // Switch views
             categoryCardsView.style.display = "none";
             categoryVendorsView.style.display = "block";
         });
     });
     
-    // Back button
     backBtn.addEventListener("click", () => {
         categoryCardsView.style.display = "grid";
         categoryVendorsView.style.display = "none";
     });
+}
+
+function setupModal() {
+    const modal = document.getElementById("vendorModal");
+    const closeBtn = document.querySelector(".close-modal");
+    
+    closeBtn.onclick = () => modal.style.display = "none";
+    window.onclick = (event) => {
+        if (event.target === modal) modal.style.display = "none";
+    };
 }
 
 function setupEventListeners() {
@@ -1078,7 +1462,6 @@ function setupEventListeners() {
         window.location.replace("../login.html");
     });
     
-    // Profile picture upload
     document.querySelector(".profile-picture-container")?.addEventListener("click", () => {
         document.getElementById("profilePictureInput").click();
     });
@@ -1109,8 +1492,24 @@ function setupEventListeners() {
     });
 }
 
-// Expose functions globally
+window.viewMessage = (messageId) => {
+    const message = messagesList.find(m => m.id === messageId);
+    if (message) {
+        alert(`From: ${message.vendorName}\nSubject: ${message.subject}\n\nMessage:\n${message.message}`);
+        
+        if (!message.isRead) {
+            updateDoc(doc(db, "messages", messageId), { isRead: true, readAt: new Date().toISOString() })
+                .catch(console.error);
+        }
+    }
+};
+
 window.openVendorDetails = openVendorDetails;
-window.viewMessage = viewMessage;
-window.cancelBooking = cancelBooking;
+window.openContactForm = openContactForm;
+window.openBookingForm = openBookingForm;
+window.openBookingFormDirect = openBookingFormDirect;
+window.openPaymentForm = openPaymentForm;
+window.closeModal = closeModal;
 window.switchSection = switchSection;
+window.cancelBooking = cancelBooking;
+window.changeImage = function(direction) {};
