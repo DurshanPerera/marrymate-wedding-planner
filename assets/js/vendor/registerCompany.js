@@ -389,14 +389,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             showSuccess('Registration successful! Please wait for admin approval.');
             
-            // Trigger product scraping in the background
+           // Trigger product scraping and WAIT for it to finish!
             if (website) {
-                triggerProductScraping(user.uid, website, "company", companyName);
+                registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extracting your packages...';
+                await triggerProductScraping(user.uid, website, "company", companyName);                
             }
+            
+            showSuccess('Registration complete! Redirecting to login...');
             
             setTimeout(() => {
                 window.location.href = '../login.html';
-            }, 2000);
+            }, 1000);
 
         } catch (error) {
             showError(getFirebaseErrorMessage(error));

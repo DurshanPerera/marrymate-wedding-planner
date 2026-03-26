@@ -5,6 +5,17 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { GoogleGenAI } = require('@google/genai');
 
+// --- NEW: FIREBASE ADMIN & CRON TOOLS ---
+const admin = require('firebase-admin');
+const cron = require('node-cron');
+const serviceAccount = require('./firebase-key.json');
+
+// Initialize Firebase with Super Admin Powers
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+const db = admin.firestore();
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -454,3 +465,97 @@ app.get('/api/health', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Smart Multi-Page Scraper running on http://localhost:${PORT}`));
+
+// =========================================================
+// 🔄 AUTOMATED DAILY UPDATER (SAFE MERGE LOGIC)
+// Runs every night at 2:00 AM to update existing prices ONLY
+// =========================================================
+async function runDailyVendorUpdate() {
+    console.log("⏰ [SYSTEM] Starting SAFE daily price update...");
+    const currentPort = process.env.PORT || 3000;
+
+    try {
+        const collections = ['company_vendors', 'individual_vendors'];
+        
+        for (const collName of collections) {
+            // 1. Get all approved vendors from Firebase
+            const snapshot = await db.collection(collName)
+                .where('status', '==', 'approved')
+                .where('isActive', '==', true)
+                .get();
+
+            for (const doc of snapshot.docs) {
+                const vendor = doc.data();
+                const vendorId = doc.id;
+
+                if (!vendor.website || vendor.website.trim() === '') continue;
+
+                console.log(`\n🔍 Checking price updates for: ${vendor.companyName || vendor.fullName}`);
+                
+                try {
+                    // 2. Call our scraper to get today's live website data
+                    const response = await axios.post(`http://localhost:${currentPort}/api/scrape-products`, {
+                        url: vendor.website,
+                        vendorId: vendorId,
+                        vendorType: collName === 'company_vendors' ? 'company' : 'individual'
+                    });
+
+                    if (response.data.success && response.data.products.length > 0) {
+                        const liveScrapedProducts = response.data.products;
+
+                        // 3. Get the existing products ALREADY in our database
+                        const existingProductsSnap = await db.collection('products')
+                            .where('vendorId', '==', vendorId)
+                            .get();
+
+                        const batch = db.batch();
+                        let updatedPricesCount = 0;
+                        
+                        // 4. SAFE MERGE LOGIC: Only update prices of matching items
+                        existingProductsSnap.forEach(oldDoc => {
+                            const dbProduct = oldDoc.data();
+                            
+                            // Try to find the exact same package on the live website by matching the Title
+                            const matchingLiveProduct = liveScrapedProducts.find(liveProd => 
+                                liveProd.title.toLowerCase() === dbProduct.title.toLowerCase() ||
+                                liveProd.title.toLowerCase().includes(dbProduct.title.toLowerCase())
+                            );
+
+                            // 5. If we found a match, check if the price changed!
+                            if (matchingLiveProduct) {
+                                if (dbProduct.price !== matchingLiveProduct.price) {
+                                    // ONLY update the price fields. Leave images and descriptions untouched!
+                                    batch.update(oldDoc.ref, {
+                                        price: matchingLiveProduct.price,
+                                        priceNumber: matchingLiveProduct.priceNumber,
+                                        lastPriceAutoUpdate: new Date().toISOString()
+                                    });
+                                    updatedPricesCount++;
+                                    console.log(`   💸 Price updated for "${dbProduct.title}": ${matchingLiveProduct.price}`);
+                                }
+                            }
+                        });
+
+                        // 6. Update the vendor's profile to show we checked today
+                        const vendorRef = db.collection(collName).doc(vendorId);
+                        batch.update(vendorRef, {
+                            lastAutomatedCheck: new Date().toISOString()
+                        });
+
+                        // Commit all database changes safely
+                        await batch.commit();
+                        console.log(`✅ Safe Sync Complete! Updated ${updatedPricesCount} prices for ${vendor.companyName || vendor.fullName}.`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Failed to update vendor ${vendorId}:`, err.message);
+                }
+                
+                // Wait 5 seconds between vendors so we don't get blocked by their servers
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+        console.log("🎉 [SYSTEM] Daily Safe Price Update Complete!");
+    } catch (error) {
+        console.error("❌ [SYSTEM] Critical error during daily update:", error);
+    }
+}
