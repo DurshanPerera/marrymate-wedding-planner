@@ -530,7 +530,7 @@ function showGoogleSuccess(message) {
     const successDiv = document.getElementById('successMessage');
     successDiv.textContent = message;
     successDiv.style.display = 'block';
-    setTimeout(() => {
+    setTimeout(() => {s
         successDiv.style.display = 'none';
     }, 5000);
 }

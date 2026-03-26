@@ -595,69 +595,180 @@ function updateDashboardStats() {
     }
 }
 
-/* =========================================================
-   BUDGET PLANNER
-========================================================= */
+
+// =========================================================
+// SMART BUDGET PLANNER - IMPROVED VERSION
+// =========================================================
+
+// Store selected plan data
+let currentWeddingPlan = {
+    totalBudget: 0,
+    guestCount: 0,
+    district: "",
+    weddingDate: "",
+    selectedCategories: [],
+    categoryAllocations: {},
+    selectedVendors: [],
+    totalEstimatedCost: 0
+};
+
+// Category weights based on guest count and typical wedding budgets
+function getCategoryWeight(category, guestCount) {
+    const baseWeights = {
+        venue: 0.35,
+        catering: 0.30,
+        photography: 0.10,
+        bridal: 0.08,
+        entertainment: 0.05,
+        cake: 0.04,
+        invitations: 0.03,
+        honeymoon: 0.05
+    };
+    
+    // Adjust catering weight based on guest count
+    let weight = baseWeights[category];
+    if (category === 'catering' && guestCount > 200) {
+        weight = 0.32;
+    } else if (category === 'catering' && guestCount < 50) {
+        weight = 0.25;
+    }
+    
+    return weight;
+}
+
 function calculateBudgetPlan() {
     const totalBudget = Number(document.getElementById("budgetAmount").value);
-    const district = document.getElementById("weddingDistrict").value;
     const guestCount = Number(document.getElementById("guestCount").value);
+    const district = document.getElementById("weddingDistrict").value;
+    const weddingDate = document.getElementById("weddingDate").value;
     
+    // Get selected categories
+    const selectedCategories = [];
+    document.querySelectorAll('.category-checkbox input:checked').forEach(checkbox => {
+        selectedCategories.push(checkbox.value);
+    });
+    
+    // Validation
     if (!totalBudget || totalBudget <= 0) {
         showToast("Please enter a valid budget amount", true);
-        return;
+        return false;
+    }
+    
+    if (!guestCount || guestCount <= 0) {
+        showToast("Please enter guest count", true);
+        return false;
     }
     
     if (!district) {
-        showToast("Please select your preferred district", true);
-        return;
+        showToast("Please select your district", true);
+        return false;
     }
     
-    const categoryBudgets = {};
+    if (!weddingDate) {
+        showToast("Please select your wedding date", true);
+        return false;
+    }
+    
+    if (selectedCategories.length === 0) {
+        showToast("Please select at least one service category", true);
+        return false;
+    }
+    
+    // Calculate category allocations
+    const categoryAllocations = {};
     let totalAllocated = 0;
     
-    for (const [category, percentage] of Object.entries(BUDGET_ALLOCATION)) {
-        const amount = Math.floor(totalBudget * percentage);
-        categoryBudgets[category] = amount;
-        totalAllocated += amount;
+    for (const category of selectedCategories) {
+        const weight = getCategoryWeight(category, guestCount);
+        const allocated = Math.floor(totalBudget * weight);
+        categoryAllocations[category] = allocated;
+        totalAllocated += allocated;
     }
     
-    const recommendations = [];
-    for (const [category, budgetAmount] of Object.entries(categoryBudgets)) {
+    // Adjust to match total budget
+    const adjustment = totalBudget - totalAllocated;
+    if (adjustment !== 0 && selectedCategories.length > 0) {
+        const firstCategory = selectedCategories[0];
+        categoryAllocations[firstCategory] += adjustment;
+    }
+    
+    // Find vendors for each category
+    const selectedVendors = [];
+    let totalEstimatedCost = 0;
+    
+    for (const category of selectedCategories) {
+        const budgetForCategory = categoryAllocations[category];
+        
+        // Find vendors that match category and district
         const matchingVendors = vendorsList.filter(v => 
             v.category === category && 
-            v.district === district &&
+            v.district?.toLowerCase() === district.toLowerCase() &&
             v.isActive !== false &&
             v.status === "approved"
         );
         
         if (matchingVendors.length > 0) {
-            recommendations.push(matchingVendors[0]);
+            // Find best match based on budget (closest to budget)
+            let bestVendor = matchingVendors[0];
+            let bestPriceDiff = Math.abs((matchingVendors[0].priceNumber || budgetForCategory) - budgetForCategory);
+            
+            for (const vendor of matchingVendors) {
+                const vendorPrice = vendor.priceNumber || budgetForCategory;
+                const priceDiff = Math.abs(vendorPrice - budgetForCategory);
+                if (priceDiff < bestPriceDiff) {
+                    bestPriceDiff = priceDiff;
+                    bestVendor = vendor;
+                }
+            }
+            
+            const vendorPrice = bestVendor.priceNumber || budgetForCategory;
+            selectedVendors.push({
+                vendor: bestVendor,
+                category: category,
+                allocatedBudget: budgetForCategory,
+                estimatedPrice: vendorPrice,
+                categoryName: categoryNames[category] || category
+            });
+            totalEstimatedCost += vendorPrice;
+        } else {
+            // No vendor found for this category
+            selectedVendors.push({
+                vendor: null,
+                category: category,
+                allocatedBudget: budgetForCategory,
+                estimatedPrice: 0,
+                categoryName: categoryNames[category] || category,
+                notFound: true
+            });
         }
     }
     
-    budgetPlan = {
+    // Save plan data
+    currentWeddingPlan = {
         totalBudget,
-        district,
         guestCount,
-        categoryBudgets,
-        totalAllocated,
-        totalEstimated: totalAllocated,
-        remaining: totalBudget - totalAllocated,
-        recommendations: recommendations.slice(0, 5)
+        district,
+        weddingDate,
+        selectedCategories,
+        categoryAllocations,
+        selectedVendors,
+        totalEstimatedCost
     };
     
+    // Display results
+    displayBudgetResults();
+    
+    // Save to user profile
     updateDoc(doc(db, "users", currentUser.uid), {
         budget: totalBudget,
         district: district,
         guestCount: guestCount,
-        weddingDate: document.getElementById("weddingDate").value,
+        weddingDate: weddingDate,
+        weddingPlan: currentWeddingPlan,
         updatedAt: new Date().toISOString()
     }).catch(console.error);
     
-    displayBudgetResults();
-    updateDashboardStats();
-    renderRecommendedVendors();
+    return true;
 }
 
 function displayBudgetResults() {
@@ -665,39 +776,63 @@ function displayBudgetResults() {
     const breakdownDiv = document.getElementById("budgetBreakdown");
     const recommendationsDiv = document.getElementById("budgetRecommendedVendors");
     
-    let breakdownHtml = '<h4>Budget Breakdown</h4>';
-    for (const [category, amount] of Object.entries(budgetPlan.categoryBudgets)) {
+    // Build breakdown HTML
+    let breakdownHtml = '';
+    for (const vendorItem of currentWeddingPlan.selectedVendors) {
+        const categoryName = vendorItem.categoryName;
+        const allocated = vendorItem.allocatedBudget;
+        const estimated = vendorItem.estimatedPrice;
+        const status = vendorItem.notFound ? '⚠️ No vendor found' : '✅ Vendor selected';
+        
         breakdownHtml += `
-            <div class="budget-category">
-                <span class="category-name">${categoryNames[category] || category}</span>
-                <span class="category-amount">${formatCurrency(amount)}</span>
+            <div class="budget-category-item">
+                <span class="category-name">${categoryName}</span>
+                <div style="text-align: right;">
+                    <div>Allocated: ${formatCurrency(allocated)}</div>
+                    <div style="font-size: 12px; color: ${vendorItem.notFound ? '#ff6b6b' : '#51cf66'}">
+                        ${status} ${!vendorItem.notFound ? `• Estimated: ${formatCurrency(estimated)}` : ''}
+                    </div>
+                </div>
             </div>
         `;
     }
-    breakdownHtml += `
-        <div class="budget-total">
-            <span>Total Estimated</span>
-            <span>${formatCurrency(budgetPlan.totalEstimated)}</span>
-        </div>
-        <div class="budget-total" style="border-top-color: ${budgetPlan.remaining >= 0 ? '#51cf66' : '#ff6b6b'}">
-            <span>Remaining</span>
-            <span>${formatCurrency(budgetPlan.remaining)}</span>
-        </div>
-    `;
     breakdownDiv.innerHTML = breakdownHtml;
     
-    if (budgetPlan.recommendations.length === 0) {
+    // Update totals
+    document.getElementById("totalBudgetAmount").textContent = formatCurrency(currentWeddingPlan.totalBudget);
+    document.getElementById("estimatedTotalAmount").textContent = formatCurrency(currentWeddingPlan.totalEstimatedCost);
+    const remaining = currentWeddingPlan.totalBudget - currentWeddingPlan.totalEstimatedCost;
+    document.getElementById("remainingAmount").textContent = formatCurrency(remaining);
+    document.getElementById("remainingAmount").style.color = remaining >= 0 ? '#51cf66' : '#ff6b6b';
+    
+    // Build recommended vendors grid
+    const validVendors = currentWeddingPlan.selectedVendors.filter(v => !v.notFound && v.vendor);
+    
+    if (validVendors.length === 0) {
         recommendationsDiv.innerHTML = '<p class="empty-state">No matching vendors found for your criteria. Try adjusting your district or budget.</p>';
     } else {
-        recommendationsDiv.innerHTML = budgetPlan.recommendations.map(vendor => renderVendorCard(vendor)).join("");
+        recommendationsDiv.innerHTML = validVendors.map(item => `
+            <div class="vendor-card" data-id="${item.vendor.id}" data-type="${item.vendor.type}" style="position: relative;">
+                <div class="vendor-selection-badge">Selected for ${item.categoryName}</div>
+                <div class="vendor-card-image">
+                    <img src="${item.vendor.profilePicture || 'https://via.placeholder.com/400x300?text=No+Image'}" 
+                         alt="${escapeHtml(item.vendor.companyName || item.vendor.fullName)}"
+                         onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                </div>
+                <div class="vendor-card-content">
+                    <h3 class="vendor-name">${escapeHtml(item.vendor.companyName || item.vendor.fullName || item.vendor.serviceName)}</h3>
+                    <div class="vendor-location">
+                        <i class="fas fa-map-marker-alt"></i> ${escapeHtml(item.vendor.district || "Location not specified")}
+                    </div>
+                    <p class="vendor-description">${escapeHtml((item.vendor.description || "").substring(0, 80))}...</p>
+                    <div class="vendor-price">Estimated: ${formatCurrency(item.estimatedPrice)}</div>
+                    <div class="vendor-category-badge">${escapeHtml(item.categoryName)}</div>
+                </div>
+            </div>
+        `).join("");
         
-        recommendationsDiv.querySelectorAll('.favorite-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleSaveVendor(btn.dataset.id, btn.dataset.type);
-            });
-        });
-        recommendationsDiv.querySelectorAll('.vendor-card').forEach(card => {
+        // Add click event to view vendor details
+        document.querySelectorAll('#budgetRecommendedVendors .vendor-card').forEach(card => {
             card.addEventListener('click', () => {
                 openVendorDetails(card.dataset.id, card.dataset.type);
             });
@@ -707,6 +842,192 @@ function displayBudgetResults() {
     resultsDiv.style.display = "block";
     resultsDiv.scrollIntoView({ behavior: "smooth" });
 }
+
+// Plan Wedding and Proceed to Payment
+function openWeddingPaymentModal() {
+    if (!currentWeddingPlan.selectedVendors || currentWeddingPlan.selectedVendors.length === 0) {
+        showToast("Please calculate your wedding plan first", true);
+        return;
+    }
+    
+    const modalContent = document.getElementById("modalContent");
+    
+    modalContent.innerHTML = `
+        <div class="payment-modal-container">
+            <button class="back-button" onclick="closeModal()">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            
+            <h2>Complete Your Wedding Plan</h2>
+            <p class="payment-summary">You're about to book ${currentWeddingPlan.selectedVendors.filter(v => !v.notFound).length} vendors for your wedding</p>
+            
+            <div class="payment-card">
+                <div class="card-icons">
+                    <i class="fab fa-cc-visa"></i>
+                    <i class="fab fa-cc-mastercard"></i>
+                    <i class="fab fa-cc-amex"></i>
+                </div>
+                
+                <div class="card-number">
+                    <input type="text" id="cardNumber" placeholder="Card Number" maxlength="19" required>
+                </div>
+                
+                <div class="card-details">
+                    <input type="text" id="expiryDate" placeholder="MM/YY" maxlength="5" required>
+                    <input type="password" id="cvv" placeholder="CVV" maxlength="3" required>
+                </div>
+                
+                <div class="card-holder">
+                    <input type="text" id="cardName" placeholder="Cardholder Name" required>
+                </div>
+                
+                <div class="payment-total">
+                    <p>Total Payment Amount</p>
+                    <h3>${formatCurrency(currentWeddingPlan.totalEstimatedCost)}</h3>
+                </div>
+                
+                <button class="btn-primary pay-btn" id="confirmWeddingPaymentBtn">
+                    <i class="fas fa-lock"></i> Pay & Confirm Wedding Plan
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Format card number
+    const cardNumberInput = document.getElementById("cardNumber");
+    if (cardNumberInput) {
+        cardNumberInput.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\s/g, '');
+            if (value.length > 16) value = value.slice(0, 16);
+            e.target.value = value.replace(/(\d{4})/g, '$1 ').trim();
+        });
+    }
+    
+    // Format expiry date
+    const expiryInput = document.getElementById("expiryDate");
+    if (expiryInput) {
+        expiryInput.addEventListener("input", (e) => {
+            let value = e.target.value.replace(/\//g, '');
+            if (value.length >= 2) {
+                value = value.slice(0, 2) + '/' + value.slice(2, 4);
+            }
+            e.target.value = value;
+        });
+    }
+    
+    document.getElementById("confirmWeddingPaymentBtn").addEventListener("click", async () => {
+        await processWeddingPlanPayment();
+    });
+    
+    document.getElementById("vendorModal").style.display = "block";
+}
+
+async function processWeddingPlanPayment() {
+    const cardNumber = document.getElementById("cardNumber")?.value.replace(/\s/g, '');
+    const expiryDate = document.getElementById("expiryDate")?.value;
+    const cvv = document.getElementById("cvv")?.value;
+    const cardName = document.getElementById("cardName")?.value.trim();
+    
+    if (!cardNumber || !expiryDate || !cvv || !cardName) {
+        showToast("Please fill all payment details", true);
+        return;
+    }
+    
+    if (cardNumber.length !== 16) {
+        showToast("Please enter a valid 16-digit card number", true);
+        return;
+    }
+    
+    if (cvv.length !== 3) {
+        showToast("Please enter a valid 3-digit CVV", true);
+        return;
+    }
+    
+    const payBtn = document.getElementById("confirmWeddingPaymentBtn");
+    const originalText = payBtn.innerHTML;
+    payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Payment...';
+    payBtn.disabled = true;
+    
+    try {
+        // Create bookings for each selected vendor
+        const successfulBookings = [];
+        const failedBookings = [];
+        
+        for (const vendorItem of currentWeddingPlan.selectedVendors) {
+            if (vendorItem.notFound || !vendorItem.vendor) continue;
+            
+            const bookingData = {
+                vendorId: vendorItem.vendor.id,
+                vendorName: vendorItem.vendor.companyName || vendorItem.vendor.fullName || vendorItem.vendor.serviceName,
+                vendorType: vendorItem.vendor.type,
+                serviceTitle: `${vendorItem.categoryName} Service`,
+                eventDate: currentWeddingPlan.weddingDate,
+                budget: vendorItem.estimatedPrice,
+                guestCount: currentWeddingPlan.guestCount,
+                district: currentWeddingPlan.district,
+                message: `Wedding Plan Booking\n\nCategory: ${vendorItem.categoryName}\nTotal Wedding Budget: ${formatCurrency(currentWeddingPlan.totalBudget)}\nGuest Count: ${currentWeddingPlan.guestCount}\n\nThis is part of a complete wedding plan.`,
+                paymentStatus: "paid",
+                status: "pending",
+                createdAt: new Date().toISOString(),
+                isPartOfWeddingPlan: true,
+                weddingPlanId: `plan_${Date.now()}`
+            };
+            
+            try {
+                await addDoc(collection(db, "bookings"), {
+                    customerId: currentUser.uid,
+                    customerName: currentCustomerData.fullName || "Customer",
+                    customerEmail: currentCustomerData.email || currentUser.email,
+                    customerPhone: currentCustomerData.phone || "",
+                    ...bookingData
+                });
+                successfulBookings.push(vendorItem.vendorName);
+            } catch (error) {
+                console.error("Error creating booking for vendor:", vendorItem.vendorName, error);
+                failedBookings.push(vendorItem.vendorName);
+            }
+        }
+        
+        // Save wedding plan to user profile
+        await updateDoc(doc(db, "users", currentUser.uid), {
+            weddingPlan: {
+                ...currentWeddingPlan,
+                bookedAt: new Date().toISOString(),
+                paymentStatus: "completed",
+                cardLastFour: cardNumber.slice(-4)
+            },
+            weddingPlanStatus: "confirmed",
+            weddingPlanBookedAt: new Date().toISOString()
+        }, { merge: true });
+        
+        // Show success message
+        const modalContent = document.getElementById("modalContent");
+        modalContent.innerHTML = `
+            <div class="success-container">
+                <i class="fas fa-check-circle" style="font-size: 70px; color: #51cf66;"></i>
+                <h2>Wedding Plan Confirmed! 🎉</h2>
+                <p>Your wedding plan has been successfully booked.</p>
+                <p><strong>${successfulBookings.length}</strong> vendors have been notified.</p>
+                ${failedBookings.length > 0 ? `<p style="color: #ff6b6b;">Note: ${failedBookings.length} vendors could not be booked. Please contact support.</p>` : ''}
+                <p>You will receive confirmation emails shortly.</p>
+                <button class="btn-primary" onclick="closeModal(); location.reload();">Close</button>
+            </div>
+        `;
+        
+        showToast("Wedding plan confirmed successfully!");
+        
+        // Update dashboard stats
+        await loadBookings();
+        updateDashboardStats();
+        
+    } catch (error) {
+        console.error("Error processing wedding plan:", error);
+        showToast("Error processing payment. Please try again.", true);
+        payBtn.innerHTML = originalText;
+        payBtn.disabled = false;
+    }
+}
+
 
 /* =========================================================
    VENDOR DETAILS & MODAL FUNCTIONS
@@ -894,8 +1215,8 @@ function openProductBookingForm(product) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="bookingBudget">Your Budget (LKR)</label>
-                    <input type="number" id="bookingBudget" placeholder="Enter your budget" value="${product.priceNumber || ''}">
+                    <label for="bookingGuestCount">Expected Guest Count</label>
+                    <input type="number" id="bookingGuestCount" placeholder="Number of guests">
                 </div>
                 
                 <div class="form-group">
@@ -903,7 +1224,7 @@ function openProductBookingForm(product) {
                     <textarea id="bookingNotes" rows="4" placeholder="Any specific requirements or questions about this service..."></textarea>
                 </div>
                 
-                <button type="submit" class="btn-primary">Send Booking Request</button>
+                <button type="submit" class="btn-primary">Confirm Booking</button>
             </form>
         </div>
     `;
@@ -912,7 +1233,7 @@ function openProductBookingForm(product) {
         e.preventDefault();
         
         const eventDate = document.getElementById("bookingEventDate").value;
-        const budget = document.getElementById("bookingBudget").value;
+        const guestCount = document.getElementById("bookingGuestCount").value;
         const notes = document.getElementById("bookingNotes").value;
         
         if (!eventDate) {
@@ -920,18 +1241,28 @@ function openProductBookingForm(product) {
             return;
         }
         
+        // Use the product's price directly
         const bookingData = {
             vendorId: currentVendorForModal.id,
             vendorName: currentVendorForModal.companyName || currentVendorForModal.fullName,
             serviceTitle: product.title,
             eventDate: eventDate,
-            budget: Number(budget) || product.priceNumber || 0,
-            message: `Product: ${product.title}\n\nPrice: ${product.price}\n\n${notes ? `Notes: ${notes}` : ''}`,
+            budget: product.priceNumber || 0,
+            message: `Product: ${product.title}\n\nPrice: ${product.price}\n\n${guestCount ? `Guest Count: ${guestCount}\n\n` : ''}${notes ? `Notes: ${notes}` : ''}`,
             productId: product.id,
             productDetails: product
         };
         
+        // Show loading state
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        submitBtn.disabled = true;
+        
         await sendBookingRequest(bookingData);
+        
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
         closeModal();
     });
 }
@@ -1457,6 +1788,7 @@ function setupModal() {
 function setupEventListeners() {
     document.getElementById("profileForm")?.addEventListener("submit", updateProfile);
     document.getElementById("calculateBudgetBtn")?.addEventListener("click", calculateBudgetPlan);
+    document.getElementById("planWeddingBtn")?.addEventListener("click", openWeddingPaymentModal);
     document.getElementById("logoutBtn")?.addEventListener("click", async () => {
         await signOut(auth);
         window.location.replace("../login.html");

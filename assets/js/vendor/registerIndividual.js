@@ -25,7 +25,85 @@ document.addEventListener('DOMContentLoaded', function() {
     let isPasswordValid = false;
 
     // ==============================
-    // PRODUCT SCRAPING FUNCTION
+    // AI AUTO-FILL LOGIC
+    // ==============================
+    const autoFillBtn = document.getElementById('autoFillBtn');
+    const aiStatusMessage = document.getElementById('aiStatusMessage');
+    let aiExtractedDescription = "";
+    let aiExtractedImage = "";
+
+    if (autoFillBtn) {
+        autoFillBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const websiteUrl = document.getElementById('website').value.trim();
+
+            if (!websiteUrl) {
+                alert("Please enter a website URL first!");
+                return;
+            }
+
+            const originalText = autoFillBtn.innerHTML;
+            autoFillBtn.innerHTML = '⏳ AI is reading website... please wait...';
+            autoFillBtn.disabled = true;
+            aiStatusMessage.style.display = 'none';
+
+            try {
+                const response = await fetch('http://localhost:3000/api/extract-vendor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: websiteUrl })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const aiData = result.data;
+                    
+                    if(aiData.contactPerson || aiData.companyName) {
+                        document.getElementById('fullName').value = aiData.contactPerson || aiData.companyName;
+                    }
+                    if(aiData.companyName) document.getElementById('serviceName').value = aiData.companyName;
+                    if(aiData.phone) document.getElementById('phone').value = aiData.phone;
+                    if(aiData.email) document.getElementById('email').value = aiData.email;
+                    if(aiData.address) document.getElementById('address').value = aiData.address;
+                    
+                    if(aiData.category) {
+                        const categorySelect = document.getElementById('category');
+                        for (let i = 0; i < categorySelect.options.length; i++) {
+                            if (categorySelect.options[i].text.toLowerCase().includes(aiData.category.toLowerCase())) {
+                                categorySelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+
+                    if(aiData.description) {
+                        aiExtractedDescription = aiData.description;
+                    }
+
+                    if(result.imageUrl) {
+                        aiExtractedImage = result.imageUrl;
+                        console.log("🖼️ AI captured profile picture:", aiExtractedImage);
+                    }
+
+                    aiStatusMessage.textContent = "✨ AI successfully filled your details! (Please select your Birthday manually)";
+                    aiStatusMessage.style.display = 'block';
+
+                } else {
+                    alert("AI could not read the website. Some sites block automated tools.");
+                }
+            } catch (error) {
+                console.error("AI Error:", error);
+                alert("Backend server is not running! Make sure you typed 'node server.js' in the terminal.");
+            } finally {
+                autoFillBtn.innerHTML = originalText;
+                autoFillBtn.disabled = false;
+            }
+        });
+    }
+
+    // ==============================
+    // PRODUCT SCRAPING FUNCTION - IDENTICAL TO COMPANY VERSION
     // ==============================
     async function triggerProductScraping(vendorId, websiteUrl, vendorType, serviceName) {
         if (!websiteUrl) {
@@ -53,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (result.success && result.products && result.products.length > 0) {
                 console.log(`✅ Found ${result.products.length} products for vendor ${vendorId}`);
                 
-                // Use a separate products collection
+                // Use a separate products collection (same as company version)
                 const productsCollection = collection(db, "products");
                 
                 let savedCount = 0;
@@ -63,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             vendorId: vendorId,
                             vendorType: vendorType,
                             vendorName: serviceName,
-                            title: product.title || "Untitled Service",
+                            title: product.title || "Untitled Product",
                             description: product.description || "",
                             price: product.price || "Price on request",
                             priceNumber: product.priceNumber || null,
@@ -115,6 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error("❌ Error in product scraping:", error);
+            // Update vendor with error status
             try {
                 const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
                 await setDoc(vendorRef, {
@@ -125,6 +204,35 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (dbError) {
                 console.error("Failed to update vendor status:", dbError);
             }
+        }
+    }
+
+    // ==============================
+    // PASSWORD VALIDATION (same as company version)
+    // ==============================
+    function checkPasswordRequirements(password) {
+        const hasLength = password.length >= 8;
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+        
+        updateRequirement(reqLength, hasLength);
+        updateRequirement(reqUppercase, hasUppercase);
+        updateRequirement(reqLowercase, hasLowercase);
+        updateRequirement(reqNumber, hasNumber);
+        updateRequirement(reqSpecial, hasSpecial);
+        
+        return hasLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+    }
+
+    function updateRequirement(element, isValid) {
+        if (isValid) {
+            element.classList.add('valid');
+            element.classList.remove('invalid');
+        } else {
+            element.classList.add('invalid');
+            element.classList.remove('valid');
         }
     }
 
@@ -163,36 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ==============================
-    // PASSWORD STRENGTH & VALIDATION
-    // ==============================
-    function checkPasswordRequirements(password) {
-        const hasLength = password.length >= 8;
-        const hasUppercase = /[A-Z]/.test(password);
-        const hasLowercase = /[a-z]/.test(password);
-        const hasNumber = /[0-9]/.test(password);
-        const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-        
-        updateRequirement(reqLength, hasLength);
-        updateRequirement(reqUppercase, hasUppercase);
-        updateRequirement(reqLowercase, hasLowercase);
-        updateRequirement(reqNumber, hasNumber);
-        updateRequirement(reqSpecial, hasSpecial);
-        
-        return hasLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
-    }
-
-    function updateRequirement(element, isValid) {
-        if (isValid) {
-            element.classList.add('valid');
-            element.classList.remove('invalid');
-        } else {
-            element.classList.add('invalid');
-            element.classList.remove('valid');
-        }
-    }
-
-    // Show/hide password requirements when password field is focused
+    // Password input listeners
     passwordInput.addEventListener('focus', function() {
         if (passwordRequirements) {
             passwordRequirements.classList.add('show');
@@ -207,7 +286,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 200);
     });
 
-    // Real-time password validation
     passwordInput.addEventListener('input', function() {
         const password = this.value;
         const isValid = checkPasswordRequirements(password);
@@ -235,7 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Confirm password validation
     confirmPasswordInput.addEventListener('input', function() {
         const password = passwordInput.value;
         const confirmPassword = this.value;
@@ -254,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Age validation from birthday
+    // Age validation
     const birthdayInput = document.getElementById('birthday');
     if (birthdayInput) {
         birthdayInput.addEventListener('change', function() {
@@ -275,92 +352,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==============================
-    // AI AUTO-FILL LOGIC
+    // FORM SUBMISSION
     // ==============================
-    const autoFillBtn = document.getElementById('autoFillBtn');
-    const aiStatusMessage = document.getElementById('aiStatusMessage');
-    let aiExtractedDescription = "";
-    let aiExtractedImage = "";
-
-    if (autoFillBtn) {
-        autoFillBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            const websiteUrl = document.getElementById('website').value.trim();
-
-            if (!websiteUrl) {
-                showError("Please enter a website URL first!");
-                return;
-            }
-
-            const originalText = autoFillBtn.innerHTML;
-            autoFillBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI is reading website...';
-            autoFillBtn.disabled = true;
-            aiStatusMessage.style.display = 'none';
-
-            try {
-                const response = await fetch('http://localhost:3000/api/extract-vendor', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: websiteUrl })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    const aiData = result.data;
-                    
-                    if(aiData.contactPerson || aiData.companyName) {
-                        document.getElementById('fullName').value = aiData.contactPerson || aiData.companyName;
-                    }
-                    if(aiData.companyName) document.getElementById('serviceName').value = aiData.companyName;
-                    if(aiData.phone) document.getElementById('phone').value = aiData.phone;
-                    if(aiData.email) document.getElementById('email').value = aiData.email;
-                    if(aiData.address) document.getElementById('address').value = aiData.address;
-                    
-                    if(aiData.category) {
-                        const categorySelect = document.getElementById('category');
-                        for (let i = 0; i < categorySelect.options.length; i++) {
-                            if (categorySelect.options[i].text.toLowerCase().includes(aiData.category.toLowerCase())) {
-                                categorySelect.selectedIndex = i;
-                                break;
-                            }
-                        }
-                    }
-
-                    if(aiData.description) {
-                        aiExtractedDescription = aiData.description;
-                    }
-
-                    if(result.imageUrl) {
-                        aiExtractedImage = result.imageUrl;
-                        console.log("🖼️ AI captured profile picture:", aiExtractedImage);
-                    }
-
-                    aiStatusMessage.textContent = "✨ AI successfully filled your details! (Please select your Birthday manually)";
-                    aiStatusMessage.style.display = 'block';
-
-                    ['fullName', 'serviceName', 'phone', 'email', 'address'].forEach(id => {
-                        const el = document.getElementById(id);
-                        if(el && el.value) {
-                            el.style.boxShadow = '0 0 10px rgba(167, 112, 239, 0.5)';
-                            setTimeout(() => el.style.boxShadow = 'none', 2000);
-                        }
-                    });
-
-                } else {
-                    showError("AI could not read the website.");
-                }
-            } catch (error) {
-                console.error("AI Error:", error);
-                showError("Backend server is not running! (node server.js)");
-            } finally {
-                autoFillBtn.innerHTML = originalText;
-                autoFillBtn.disabled = false;
-            }
-        });
-    }
-
-    // Form submission
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -419,9 +412,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             showSuccess('Registration successful! Please wait for admin approval.');
             
-            // Trigger product scraping in the background
+            // Trigger product scraping in the background (SAME AS COMPANY)
             if (website) {
-                triggerProductScraping(user.uid, website, "individual", serviceName);
+                console.log(`📡 Triggering product scraping for individual vendor: ${serviceName}`);
+                await triggerProductScraping(user.uid, website, "individual", serviceName);
             }
             
             setTimeout(() => {
@@ -429,6 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 2000);
 
         } catch (error) {
+            console.error("Registration error:", error);
             showError(getFirebaseErrorMessage(error));
             resetButton(registerBtn, originalBtnText);
         }
@@ -545,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Google Sign-In handler for individual
+// Google Sign-In handler
 function handleGoogleSignIn(response) {
     const userData = parseJwt(response.credential);
     
