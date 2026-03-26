@@ -1,6 +1,6 @@
 import { auth, db } from "../firebase/firebase-config.js";
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { setDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { setDoc, doc, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('individualRegisterForm');
@@ -23,6 +23,110 @@ document.addEventListener('DOMContentLoaded', function() {
     const reqSpecial = document.getElementById('reqSpecial');
     
     let isPasswordValid = false;
+
+    // ==============================
+    // PRODUCT SCRAPING FUNCTION
+    // ==============================
+    async function triggerProductScraping(vendorId, websiteUrl, vendorType, serviceName) {
+        if (!websiteUrl) {
+            console.log("No website URL provided, skipping product scraping");
+            return;
+        }
+        
+        console.log(`🔄 Starting product scraping for ${vendorId} (${serviceName}) at ${websiteUrl}`);
+        
+        try {
+            // Call the scraping server
+            const response = await fetch('http://localhost:3000/api/scrape-products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    url: websiteUrl, 
+                    vendorId: vendorId, 
+                    vendorType: vendorType 
+                })
+            });
+            
+            const result = await response.json();
+            console.log("Scraping API response:", result);
+            
+            if (result.success && result.products && result.products.length > 0) {
+                console.log(`✅ Found ${result.products.length} products for vendor ${vendorId}`);
+                
+                // Use a separate products collection
+                const productsCollection = collection(db, "products");
+                
+                let savedCount = 0;
+                for (const product of result.products) {
+                    try {
+                        const productData = {
+                            vendorId: vendorId,
+                            vendorType: vendorType,
+                            vendorName: serviceName,
+                            title: product.title || "Untitled Service",
+                            description: product.description || "",
+                            price: product.price || "Price on request",
+                            priceNumber: product.priceNumber || null,
+                            images: product.images || [],
+                            scrapedAt: new Date().toISOString(),
+                            status: "active",
+                            isActive: true,
+                            source: "web_scraping"
+                        };
+                        
+                        await addDoc(productsCollection, productData);
+                        savedCount++;
+                        console.log(`   ✅ Saved product: ${productData.title.substring(0, 50)}...`);
+                    } catch (productError) {
+                        console.error(`   ❌ Error saving product: ${product.title}`, productError);
+                    }
+                }
+                
+                console.log(`✅ Successfully stored ${savedCount}/${result.products.length} products in 'products' collection for vendor ${vendorId}`);
+                
+                // Update vendor document with scraping info
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productsScrapedAt: new Date().toISOString(),
+                    productsCount: savedCount,
+                    productScrapingStatus: "completed",
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+                
+                console.log(`✅ Updated vendor document with product count: ${savedCount}`);
+                
+            } else if (result.success && (!result.products || result.products.length === 0)) {
+                console.log(`⚠️ No products found for vendor ${vendorId}`);
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "no_products_found",
+                    productsCount: 0,
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            } else {
+                console.log(`❌ Scraping failed for vendor ${vendorId}:`, result.error);
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "failed",
+                    scrapingError: result.error || "Unknown error",
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            }
+            
+        } catch (error) {
+            console.error("❌ Error in product scraping:", error);
+            try {
+                const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
+                await setDoc(vendorRef, {
+                    productScrapingStatus: "failed",
+                    scrapingError: error.message,
+                    lastProductUpdate: new Date().toISOString()
+                }, { merge: true });
+            } catch (dbError) {
+                console.error("Failed to update vendor status:", dbError);
+            }
+        }
+    }
 
     // Password visibility toggles
     if (togglePassword) {
@@ -175,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==============================
     const autoFillBtn = document.getElementById('autoFillBtn');
     const aiStatusMessage = document.getElementById('aiStatusMessage');
-    let aiExtractedDescription = ""; // Save to Firebase later
+    let aiExtractedDescription = "";
     let aiExtractedImage = "";
 
     if (autoFillBtn) {
@@ -188,14 +292,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Change button state
             const originalText = autoFillBtn.innerHTML;
             autoFillBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI is reading website...';
             autoFillBtn.disabled = true;
             aiStatusMessage.style.display = 'none';
 
             try {
-                // Call Node.js Backend
                 const response = await fetch('http://localhost:3000/api/extract-vendor', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -207,8 +309,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.success) {
                     const aiData = result.data;
                     
-                    // Map data to INDIVIDUAL fields
-                    // Use contact person as Full Name if found, otherwise use Company Name
                     if(aiData.contactPerson || aiData.companyName) {
                         document.getElementById('fullName').value = aiData.contactPerson || aiData.companyName;
                     }
@@ -217,7 +317,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(aiData.email) document.getElementById('email').value = aiData.email;
                     if(aiData.address) document.getElementById('address').value = aiData.address;
                     
-                    // Select the category
                     if(aiData.category) {
                         const categorySelect = document.getElementById('category');
                         for (let i = 0; i < categorySelect.options.length; i++) {
@@ -228,12 +327,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Store description
                     if(aiData.description) {
                         aiExtractedDescription = aiData.description;
                     }
 
-                      if(result.imageUrl) {
+                    if(result.imageUrl) {
                         aiExtractedImage = result.imageUrl;
                         console.log("🖼️ AI captured profile picture:", aiExtractedImage);
                     }
@@ -241,7 +339,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     aiStatusMessage.textContent = "✨ AI successfully filled your details! (Please select your Birthday manually)";
                     aiStatusMessage.style.display = 'block';
 
-                    // Briefly highlight the filled boxes
                     ['fullName', 'serviceName', 'phone', 'email', 'address'].forEach(id => {
                         const el = document.getElementById(id);
                         if(el && el.value) {
@@ -316,10 +413,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 authProvider: "password",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                isActive: true
+                isActive: true,
+                productScrapingStatus: "pending"
             });
 
             showSuccess('Registration successful! Please wait for admin approval.');
+            
+            // Trigger product scraping in the background
+            if (website) {
+                triggerProductScraping(user.uid, website, "individual", serviceName);
+            }
             
             setTimeout(() => {
                 window.location.href = '../login.html';
