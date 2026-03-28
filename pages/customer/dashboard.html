@@ -79,35 +79,67 @@
         <!-- Smart Budget Planner Section -->
         <section id="budgetSection" class="content-section">
             <h2>Smart Budget Planner</h2>
-            <p class="section-desc">Enter your wedding details and let our system plan your perfect wedding.</p>
+            <p class="section-desc">Enter your wedding details and let our system create your perfect wedding plan.</p>
 
             <div class="glass form-container">
                 <div class="form-grid">
                     <div class="form-group"><label for="budgetAmount">Total Wedding Budget (LKR) *</label><input type="number" id="budgetAmount" placeholder="Enter your total budget" min="0" required></div>
-                    <div class="form-group"><label for="guestCount">Expected Guest Count</label><input type="number" id="guestCount" placeholder="Number of guests" min="0"></div>
-                    <div class="form-group"><label for="weddingDistrict">Preferred District *</label><select id="weddingDistrict"><option value="">Select District</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Galle">Galle</option><option value="Matara">Matara</option><option value="Kurunegala">Kurunegala</option><option value="Jaffna">Jaffna</option><option value="Anuradhapura">Anuradhapura</option></select></div>
-                    <div class="form-group"><label for="weddingDate">Preferred Wedding Date (Optional)</label><input type="date" id="weddingDate"></div>
+                    <div class="form-group"><label for="guestCount">Expected Guest Count *</label><input type="number" id="guestCount" placeholder="Number of guests" min="0" required></div>
+                    <div class="form-group"><label for="weddingDistrict">Preferred District *</label><select id="weddingDistrict" required><option value="">Select District</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Galle">Galle</option><option value="Matara">Matara</option><option value="Kurunegala">Kurunegala</option><option value="Jaffna">Jaffna</option><option value="Anuradhapura">Anuradhapura</option></select></div>
+                    <div class="form-group"><label for="weddingDate">Preferred Wedding Date *</label><input type="date" id="weddingDate" required></div>
                 </div>
-                <div class="form-actions"><button class="btn-primary" id="calculateBudgetBtn"><i class="fas fa-calculator"></i> Calculate My Wedding Plan</button></div>
+                
+                <!-- Category Selection -->
+                <div class="category-selection">
+                    <label class="section-label">Select Services You Need *</label>
+                    <div class="categories-checkbox-grid">
+                        <label class="category-checkbox"><input type="checkbox" value="venue" data-category="venue"><span><i class="fas fa-church"></i> Wedding Venue</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="catering" data-category="catering"><span><i class="fas fa-utensils"></i> Catering</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="photography" data-category="photography"><span><i class="fas fa-camera"></i> Photography</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="bridal" data-category="bridal"><span><i class="fas fa-spa"></i> Bridal Dressing</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="entertainment" data-category="entertainment"><span><i class="fas fa-music"></i> Entertainment</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="cake" data-category="cake"><span><i class="fas fa-cake-candles"></i> Wedding Cake</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="invitations" data-category="invitations"><span><i class="fas fa-envelope-open-text"></i> Invitations</span></label>
+                        <label class="category-checkbox"><input type="checkbox" value="honeymoon" data-category="honeymoon"><span><i class="fas fa-umbrella-beach"></i> Honeymoon</span></label>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn-primary" id="calculateBudgetBtn"><i class="fas fa-calculator"></i> Calculate My Wedding Plan</button>
+                </div>
             </div>
 
+            <!-- Budget Results -->
             <div id="budgetResults" style="display: none;">
-                <h3>Your Personalized Wedding Plan</h3>
-                <div class="budget-breakdown glass" id="budgetBreakdown"></div>
-                <div class="recommended-vendors-section"><h4>Recommended Vendors</h4><div id="budgetRecommendedVendors" class="vendor-grid"></div></div>
+                <div class="budget-summary glass">
+                    <h3>Your Wedding Plan Summary</h3>
+                    <div class="budget-breakdown" id="budgetBreakdown"></div>
+                    <div class="budget-total-summary">
+                        <div class="total-item"><span>Total Budget:</span><strong id="totalBudgetAmount">LKR 0</strong></div>
+                        <div class="total-item"><span>Estimated Cost:</span><strong id="estimatedTotalAmount">LKR 0</strong></div>
+                        <div class="total-item"><span>Remaining:</span><strong id="remainingAmount">LKR 0</strong></div>
+                    </div>
+                </div>
+                
+                <div class="recommended-vendors-section">
+                    <h3>Recommended Vendors</h3>
+                    <div id="budgetRecommendedVendors" class="vendor-grid"></div>
+                </div>
+                
+                <div class="plan-actions">
+                    <button class="btn-primary plan-wedding-btn" id="planWeddingBtn"><i class="fas fa-calendar-check"></i> Plan My Wedding & Proceed to Payment</button>
+                </div>
             </div>
         </section>
 
         <!-- Explore Vendors Section -->
         <section id="vendorsSection" class="content-section">
             <div class="section-header"><div><h2>Explore Vendors</h2><p class="section-desc">Discover the best wedding service providers in Sri Lanka.</p></div></div>
-            
             <div class="filter-bar glass">
                 <input type="text" id="searchVendor" placeholder="Search by name, service, or category..." class="search-input">
                 <select id="categoryFilter"><option value="">All Categories</option><option value="venue">Wedding Venues</option><option value="photography">Photography</option><option value="catering">Catering</option><option value="bridal">Bridal Dressing</option><option value="entertainment">Entertainment</option><option value="cake">Wedding Cakes</option><option value="invitations">Invitations</option><option value="honeymoon">Honeymoon</option></select>
                 <select id="districtFilter"><option value="">All Districts</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Galle">Galle</option><option value="Matara">Matara</option></select>
             </div>
-
             <div class="vendor-grid" id="vendorGrid"><p class="empty-state">Loading vendors...</p></div>
         </section>
 
@@ -115,8 +147,6 @@
         <section id="categoriesSection" class="content-section">
             <h2>Browse by Category</h2>
             <p class="section-desc">Find the perfect vendor for every aspect of your wedding.</p>
-            
-            <!-- Category Cards View -->
             <div id="categoriesGrid" class="categories-grid">
                 <div class="category-card glass" data-category="venue"><i class="fas fa-church"></i><h3>Wedding Venues</h3><p>Find your perfect location</p></div>
                 <div class="category-card glass" data-category="photography"><i class="fas fa-camera"></i><h3>Photography</h3><p>Capture your special moments</p></div>
@@ -127,15 +157,7 @@
                 <div class="category-card glass" data-category="invitations"><i class="fas fa-envelope-open-text"></i><h3>Invitations</h3><p>Elegant invites for your guests</p></div>
                 <div class="category-card glass" data-category="honeymoon"><i class="fas fa-umbrella-beach"></i><h3>Honeymoon Packages</h3><p>Start your journey together</p></div>
             </div>
-            
-            <!-- Category Vendors View -->
-            <div id="categoryVendorsView" style="display: none;">
-                <div class="category-vendors-header">
-                    <button id="backToCategoriesBtn" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Categories</button>
-                    <h3 id="categoryTitle"></h3>
-                </div>
-                <div class="vendor-grid" id="categoryVendorsGrid"></div>
-            </div>
+            <div id="categoryVendorsView" style="display: none;"><div class="category-vendors-header"><button id="backToCategoriesBtn" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Categories</button><h3 id="categoryTitle"></h3></div><div class="vendor-grid" id="categoryVendorsGrid"></div></div>
         </section>
 
         <!-- Saved Vendors Section -->
@@ -150,8 +172,8 @@
             <h2>My Bookings</h2>
             <p class="section-desc">Track your booking requests and history.</p>
             <div class="tabs-row"><button class="tab-btn active" data-tab="pendingBookingsTab">Pending Requests</button><button class="tab-btn" data-tab="bookingHistoryTab">Booking History</button></div>
-            <div id="pendingBookingsTab" class="tab-panel active"><div class="table-container glass"><table class="data-table"><thead><tr><th>Vendor</th><th>Service</th><th>Event Date</th><th>Budget</th><th>Status</th><th>Action</th> </thead><tbody id="pendingBookingsTableBody"> <td colspan="6" class="empty-state">No pending bookings</td></tr></tbody></table></div></div>
-            <div id="bookingHistoryTab" class="tab-panel"><div class="table-container glass"><table class="data-table"><thead><tr><th>Vendor</th><th>Service</th><th>Event Date</th><th>Amount</th><th>Status</th></tr></thead><tbody id="bookingsHistoryTableBody"><tr><td colspan="5" class="empty-state">No booking history</td></tr></tbody></table></div></div>
+            <div id="pendingBookingsTab" class="tab-panel active"><div class="table-container glass"><table class="data-table"><thead><tr><th>Vendor</th><th>Service</th><th>Event Date</th><th>Budget</th><th>Status</th><th>Action</th> </thead><tbody id="pendingBookingsTableBody"><td colspan="6" class="empty-state">No pending bookings</td></tbody></table></div></div>
+            <div id="bookingHistoryTab" class="tab-panel"><div class="table-container glass"><table class="data-table"><thead><tr><th>Vendor</th><th>Service</th><th>Event Date</th><th>Amount</th><th>Status</th> </thead><tbody id="bookingsHistoryTableBody"><td colspan="5" class="empty-state">No booking history</td></tbody></table></div></div>
         </section>
 
         <!-- Messages Section -->
@@ -166,29 +188,8 @@
             <h2>My Profile</h2>
             <p class="section-desc">Manage your personal information and wedding preferences.</p>
             <div class="glass form-container">
-                <div class="profile-picture-section">
-                    <div class="profile-picture-container">
-                        <img id="profilePreview" src="" alt="Profile Picture" style="display: none;">
-                        <div id="profilePlaceholder" class="profile-placeholder"><i class="fas fa-user"></i><span>No Profile Photo</span></div>
-                        <div class="profile-picture-overlay"><i class="fas fa-camera"></i><span>Change Photo</span></div>
-                        <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
-                    </div>
-                    <p class="profile-picture-hint">Click to upload profile photo</p>
-                </div>
-                <form id="profileForm">
-                    <div class="form-grid">
-                        <div class="form-group"><label for="fullName">Full Name *</label><input type="text" id="fullName" placeholder="Enter your full name" required></div>
-                        <div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" placeholder="Enter email address" required></div>
-                        <div class="form-group"><label for="phone">Phone Number *</label><input type="tel" id="phone" placeholder="Enter phone number" required></div>
-                        <div class="form-group"><label for="address">Address</label><input type="text" id="address" placeholder="Enter your address"></div>
-                        <div class="form-group"><label for="birthday">Birthday</label><input type="date" id="birthday"></div>
-                        <div class="form-group"><label for="weddingDatePref">Preferred Wedding Date</label><input type="date" id="weddingDatePref"></div>
-                        <div class="form-group"><label for="guestCountPref">Expected Guest Count</label><input type="number" id="guestCountPref" placeholder="Number of guests"></div>
-                        <div class="form-group"><label for="preferredDistrict">Preferred District</label><select id="preferredDistrict"><option value="">Select District</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Galle">Galle</option><option value="Matara">Matara</option></select></div>
-                        <div class="form-group full-width"><label for="weddingPreferences">Wedding Preferences & Notes</label><textarea id="weddingPreferences" rows="3" placeholder="Tell us about your dream wedding style, themes, colors, or any special requests..."></textarea></div>
-                    </div>
-                    <div class="form-actions"><button type="submit" class="btn-primary">Save Changes</button></div>
-                </form>
+                <div class="profile-picture-section"><div class="profile-picture-container"><img id="profilePreview" src="" alt="Profile Picture" style="display: none;"><div id="profilePlaceholder" class="profile-placeholder"><i class="fas fa-user"></i><span>No Profile Photo</span></div><div class="profile-picture-overlay"><i class="fas fa-camera"></i><span>Change Photo</span></div><input type="file" id="profilePictureInput" accept="image/*" style="display: none;"></div><p class="profile-picture-hint">Click to upload profile photo</p></div>
+                <form id="profileForm"><div class="form-grid"><div class="form-group"><label for="fullName">Full Name *</label><input type="text" id="fullName" placeholder="Enter your full name" required></div><div class="form-group"><label for="email">Email Address *</label><input type="email" id="email" placeholder="Enter email address" required></div><div class="form-group"><label for="phone">Phone Number *</label><input type="tel" id="phone" placeholder="Enter phone number" required></div><div class="form-group"><label for="address">Address</label><input type="text" id="address" placeholder="Enter your address"></div><div class="form-group"><label for="birthday">Birthday</label><input type="date" id="birthday"></div><div class="form-group"><label for="weddingDatePref">Preferred Wedding Date</label><input type="date" id="weddingDatePref"></div><div class="form-group"><label for="guestCountPref">Expected Guest Count</label><input type="number" id="guestCountPref" placeholder="Number of guests"></div><div class="form-group"><label for="preferredDistrict">Preferred District</label><select id="preferredDistrict"><option value="">Select District</option><option value="Colombo">Colombo</option><option value="Gampaha">Gampaha</option><option value="Kalutara">Kalutara</option><option value="Kandy">Kandy</option><option value="Galle">Galle</option><option value="Matara">Matara</option></select></div><div class="form-group full-width"><label for="weddingPreferences">Wedding Preferences & Notes</label><textarea id="weddingPreferences" rows="3" placeholder="Tell us about your dream wedding style, themes, colors, or any special requests..."></textarea></div></div><div class="form-actions"><button type="submit" class="btn-primary">Save Changes</button></div></form>
             </div>
         </section>
     </main>

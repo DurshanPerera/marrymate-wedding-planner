@@ -1,6 +1,6 @@
 import { auth, db } from "../firebase/firebase-config.js";
 import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { setDoc, doc, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { setDoc, doc, collection, addDoc, writeBatch } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('companyRegisterForm');
@@ -101,18 +101,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ==============================
-    // PRODUCT SCRAPING FUNCTION - SEPARATE COLLECTION
+    // IMPROVED PRODUCT SCRAPING FUNCTION - WITH BETTER ERROR HANDLING
     // ==============================
     async function triggerProductScraping(vendorId, websiteUrl, vendorType, companyName) {
         if (!websiteUrl) {
-            console.log("No website URL provided, skipping product scraping");
+            console.log("❌ No website URL provided, skipping product scraping");
             return;
         }
         
-        console.log(`🔄 Starting product scraping for ${vendorId} (${companyName}) at ${websiteUrl}`);
+        console.log(`\n========== PRODUCT SCRAPING STARTED ==========`);
+        console.log(`📋 Vendor ID: ${vendorId}`);
+        console.log(`🏢 Company: ${companyName}`);
+        console.log(`🔗 URL: ${websiteUrl}`);
+        console.log(`📁 Type: ${vendorType}`);
         
         try {
             // Call the scraping server
+            console.log(`📡 Sending request to scraping API...`);
             const response = await fetch('http://localhost:3000/api/scrape-products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -123,81 +128,134 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
             
+            console.log(`📡 Response status: ${response.status}`);
+            
             const result = await response.json();
-            console.log("Scraping API response:", result);
+            console.log(`📦 API Response:`, JSON.stringify(result, null, 2));
             
             if (result.success && result.products && result.products.length > 0) {
-                console.log(`✅ Found ${result.products.length} products for vendor ${vendorId}`);
+                console.log(`\n✅ Found ${result.products.length} products/services for vendor ${vendorId}`);
                 
-                // Use a separate products collection (not subcollection)
+                // Log sample product
+                if (result.products[0]) {
+                    console.log(`\n🔍 Sample product/service:`);
+                    console.log(`   Title: ${result.products[0].title}`);
+                    console.log(`   Price: ${result.products[0].price}`);
+                    console.log(`   Price Number: ${result.products[0].priceNumber}`);
+                    console.log(`   Images: ${result.products[0].images?.length || 0}`);
+                }
+                
+                // Use a separate products collection
                 const productsCollection = collection(db, "products");
                 
                 let savedCount = 0;
-                for (const product of result.products) {
+                let failedProducts = [];
+                
+                for (let i = 0; i < result.products.length; i++) {
+                    const product = result.products[i];
                     try {
+                        // Validate product data
+                        if (!product.title || product.title.trim() === "") {
+                            console.log(`   ⚠️ Product ${i+1} skipped: No title`);
+                            failedProducts.push({ index: i, reason: "No title" });
+                            continue;
+                        }
+                        
+                        if (!product.priceNumber || product.priceNumber <= 0) {
+                            console.log(`   ⚠️ Product ${i+1} skipped: Invalid price (${product.priceNumber})`);
+                            failedProducts.push({ index: i, reason: "Invalid price" });
+                            continue;
+                        }
+                        
+                        if (!product.images || product.images.length === 0) {
+                            console.log(`   ⚠️ Product ${i+1} skipped: No images`);
+                            failedProducts.push({ index: i, reason: "No images" });
+                            continue;
+                        }
+                        
                         const productData = {
                             vendorId: vendorId,
                             vendorType: vendorType,
                             vendorName: companyName,
-                            title: product.title || "Untitled Product",
-                            description: product.description || "",
-                            price: product.price || "Price on request",
-                            priceNumber: product.priceNumber || null,
-                            images: product.images || [],
+                            title: product.title.substring(0, 200),
+                            description: product.description ? product.description.substring(0, 500) : `${product.title} - Available for your special day.`,
+                            price: product.price || `LKR ${product.priceNumber.toLocaleString()}`,
+                            priceNumber: product.priceNumber,
+                            images: Array.isArray(product.images) ? product.images.filter(img => img && img.startsWith('http')).slice(0, 5) : [],
                             scrapedAt: new Date().toISOString(),
                             status: "active",
                             isActive: true,
-                            source: "web_scraping"
+                            source: "web_scraping",
+                            createdAt: new Date().toISOString()
                         };
                         
-                        await addDoc(productsCollection, productData);
+                        console.log(`   💾 Saving product ${i+1}/${result.products.length}: ${productData.title.substring(0, 50)}...`);
+                        const docRef = await addDoc(productsCollection, productData);
+                        console.log(`   ✅ Saved with ID: ${docRef.id}`);
                         savedCount++;
-                        console.log(`   ✅ Saved product: ${productData.title.substring(0, 50)}...`);
+                        
                     } catch (productError) {
-                        console.error(`   ❌ Error saving product: ${product.title}`, productError);
+                        console.error(`   ❌ Error saving product ${i+1}: ${product.title}`, productError);
+                        failedProducts.push({ index: i, reason: productError.message });
                     }
                 }
                 
-                console.log(`✅ Successfully stored ${savedCount}/${result.products.length} products in 'products' collection for vendor ${vendorId}`);
+                console.log(`\n📊 Summary: ${savedCount}/${result.products.length} products saved successfully`);
+                if (failedProducts.length > 0) {
+                    console.log(`⚠️ Failed products: ${failedProducts.length}`);
+                }
                 
                 // Update vendor document with scraping info
                 const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
                 await setDoc(vendorRef, {
                     productsScrapedAt: new Date().toISOString(),
                     productsCount: savedCount,
-                    productScrapingStatus: "completed",
-                    lastProductUpdate: new Date().toISOString()
+                    productScrapingStatus: savedCount > 0 ? "completed" : "no_valid_products",
+                    lastProductUpdate: new Date().toISOString(),
+                    productsFound: result.products.length,
+                    productsSaved: savedCount,
+                    updatedAt: new Date().toISOString()
                 }, { merge: true });
                 
                 console.log(`✅ Updated vendor document with product count: ${savedCount}`);
                 
             } else if (result.success && (!result.products || result.products.length === 0)) {
                 console.log(`⚠️ No products found for vendor ${vendorId}`);
+                console.log(`   Response message: ${result.message || 'No products with prices found'}`);
+                
                 const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
                 await setDoc(vendorRef, {
                     productScrapingStatus: "no_products_found",
                     productsCount: 0,
-                    lastProductUpdate: new Date().toISOString()
+                    scrapingMessage: result.message || "No products with valid prices found",
+                    lastProductUpdate: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 }, { merge: true });
+                
             } else {
                 console.log(`❌ Scraping failed for vendor ${vendorId}:`, result.error);
                 const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
                 await setDoc(vendorRef, {
                     productScrapingStatus: "failed",
                     scrapingError: result.error || "Unknown error",
-                    lastProductUpdate: new Date().toISOString()
+                    lastProductUpdate: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 }, { merge: true });
             }
             
+            console.log(`========== PRODUCT SCRAPING END ==========\n`);
+            
         } catch (error) {
-            console.error("❌ Error in product scraping:", error);
-            // Update vendor with error status
+            console.error("❌ CRITICAL ERROR in product scraping:", error);
+            console.error("Error details:", error.message);
+            
             try {
                 const vendorRef = doc(db, `${vendorType}_vendors`, vendorId);
                 await setDoc(vendorRef, {
                     productScrapingStatus: "failed",
                     scrapingError: error.message,
-                    lastProductUpdate: new Date().toISOString()
+                    lastProductUpdate: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 }, { merge: true });
             } catch (dbError) {
                 console.error("Failed to update vendor status:", dbError);
@@ -332,7 +390,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Form submission
+    // ==============================
+    // FORM SUBMISSION - WITH AWAIT
+    // ==============================
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
@@ -364,6 +424,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
+            console.log(`✅ User created: ${user.uid}`);
+
             // Save company vendor data in Firestore
             await setDoc(doc(db, "company_vendors", user.uid), {
                 uid: user.uid,
@@ -387,18 +449,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 productScrapingStatus: "pending"
             });
 
+            console.log(`✅ Vendor data saved to Firestore`);
+
             showSuccess('Registration successful! Please wait for admin approval.');
             
-            // Trigger product scraping in the background
+            // Trigger product scraping in the background - IMPORTANT: ADDED AWAIT
             if (website) {
-                triggerProductScraping(user.uid, website, "company", companyName);
+                console.log(`📡 Triggering product scraping for vendor: ${companyName}`);
+                await triggerProductScraping(user.uid, website, "company", companyName);
+                console.log(`✅ Product scraping completed for vendor: ${companyName}`);
+            } else {
+                console.log(`⚠️ No website provided, skipping product scraping`);
             }
             
+            // Redirect after 3 seconds to allow scraping to complete
             setTimeout(() => {
                 window.location.href = '../login.html';
-            }, 2000);
+            }, 3000);
 
         } catch (error) {
+            console.error("Registration error:", error);
             showError(getFirebaseErrorMessage(error));
             resetButton(registerBtn, originalBtnText);
         }
